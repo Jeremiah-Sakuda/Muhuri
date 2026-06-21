@@ -75,6 +75,13 @@ export interface LedgerStore {
 
   /** Append-only audit log projected from the change stream. */
   listEvents(auctionId: string): Promise<AuditEvent[]>;
+
+  /**
+   * Demo/attack hook: attempt to overwrite the witnessed seal object. Always
+   * rejects with WitnessImmutableError — memory hits the WORM map, Dynamo hits
+   * S3 Object Lock. Lets the UI show the witness refusing tampering live.
+   */
+  attemptWitnessOverwrite(auctionId: string): Promise<never>;
 }
 
 /**

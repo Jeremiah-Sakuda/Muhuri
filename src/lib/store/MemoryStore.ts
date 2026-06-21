@@ -260,4 +260,11 @@ export class MemoryStore implements LedgerStore {
   async listEvents(auctionId: string): Promise<AuditEvent[]> {
     return this.require(auctionId).events.map((e) => ({ ...e }));
   }
+
+  attemptWitnessOverwrite(auctionId: string): Promise<never> {
+    const state = this.require(auctionId);
+    const key = state.close?.witnessKey ?? `auctions/${auctionId}/seal.json`;
+    // Always rejects — the WORM witness refuses any mutation.
+    return this.worm.overwrite(key, { merkleRoot: "forged-by-operator" });
+  }
 }
