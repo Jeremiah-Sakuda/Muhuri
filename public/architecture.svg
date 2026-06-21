@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="740" viewBox="0 0 980 740" font-family="ui-sans-serif, system-ui, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#5d6b80"/>
+    </marker>
+    <style>
+      .box { fill:#11151e; stroke:#243043; stroke-width:1.5; rx:12; }
+      .t { fill:#eef3f9; font-size:15px; font-weight:600; }
+      .s { fill:#93a3b8; font-size:11.5px; }
+      .m { font-family:ui-monospace,"SF Mono",monospace; }
+      .lbl { fill:#5d6b80; font-size:11px; letter-spacing:.04em; }
+      .edge { stroke:#5d6b80; stroke-width:1.5; fill:none; marker-end:url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="980" height="740" fill="#090d13"/>
+  <text x="40" y="44" fill="#eef3f9" font-size="22" font-weight="700">Muhuri</text>
+  <text x="132" y="44" fill="#93a3b8" font-size="13">tamper-evident notary for sealed-bid auctions · non-repudiable ordering &amp; tamper-evidence in time</text>
+  <text x="40" y="64" fill="#e7b94e" font-size="11" class="m">🪔 seal = atomic DynamoDB TransactWriteItems · witness = S3 Object Lock (COMPLIANCE) + Ed25519 TSA · verify = offline, zero AWS creds</text>
+
+  <!-- clients -->
+  <rect x="90" y="92" width="800" height="56" class="box" rx="12"/>
+  <text x="110" y="118" class="t">Browser — Bidder · Organizer · Auditor</text>
+  <text x="110" y="137" class="s m">commit = SHA256(amount ‖ nonce ‖ bidderId), computed client-side — the amount is hidden until reveal</text>
+  <path class="edge" d="M490,148 L490,178"/>
+
+  <!-- next.js / vercel -->
+  <rect x="90" y="180" width="800" height="60" class="box" rx="12" stroke="#2dd4bf" stroke-opacity="0.5"/>
+  <text x="110" y="206" class="t">Next.js App Router · Vercel</text>
+  <text x="724" y="206" class="lbl m">region iad1 (us-east-1)</text>
+  <text x="110" y="227" class="s">one-screen UI · public /verify page · API routes (functions pinned to the DynamoDB region)</text>
+  <path class="edge" d="M490,240 L490,270"/>
+
+  <!-- ledgerstore -->
+  <rect x="280" y="272" width="420" height="58" class="box" rx="12"/>
+  <text x="300" y="297" class="t">LedgerStore <tspan class="s">— one interface, selected by MUHURI_BACKEND</tspan></text>
+  <text x="300" y="316" class="s m">createAuction · appendCommit · seal · reveal · listBids · getWitness</text>
+  <path class="edge" d="M400,330 L250,372"/>
+  <path class="edge" d="M580,330 L720,372"/>
+
+  <!-- memory store -->
+  <rect x="90" y="374" width="320" height="56" class="box" rx="12"/>
+  <text x="110" y="399" class="t">MemoryStore</text>
+  <text x="110" y="418" class="s">dev &amp; demo · zero cloud deps · same invariant</text>
+
+  <!-- dynamo store -->
+  <rect x="560" y="374" width="330" height="56" class="box" rx="12" stroke="#2dd4bf" stroke-opacity="0.5"/>
+  <text x="580" y="399" class="t">DynamoStore</text>
+  <text x="580" y="418" class="s">production · same application code</text>
+  <path class="edge" d="M725,430 L725,462"/>
+
+  <!-- AWS group -->
+  <rect x="440" y="456" width="500" height="244" fill="#0c1119" stroke="#243043" stroke-dasharray="4 4" rx="14"/>
+  <text x="462" y="480" class="lbl">AMAZON WEB SERVICES · us-east-1</text>
+
+  <!-- dynamodb -->
+  <rect x="462" y="492" width="456" height="74" class="box" rx="12" stroke="#e7b94e" stroke-opacity="0.45"/>
+  <text x="482" y="518" class="t">Amazon DynamoDB — single table <tspan class="m" fill="#e7b94e">Muhuri</tspan></text>
+  <text x="482" y="538" class="s m">PK=AUCTION#&lt;id&gt; · SK=META | BID#&lt;seq&gt; | CLOSE</text>
+  <text x="482" y="555" class="s m">TransactWriteItems · ConditionExpression · ClientRequestToken · Streams</text>
+  <path class="edge" d="M690,566 L690,592"/>
+  <text x="700" y="585" class="lbl">seal anchors the root →</text>
+
+  <!-- witness quorum -->
+  <rect x="462" y="594" width="222" height="92" class="box" rx="12" stroke="#2dd4bf" stroke-opacity="0.5"/>
+  <text x="482" y="619" class="t" font-size="14">S3 Object Lock</text>
+  <text x="482" y="638" class="s">COMPLIANCE mode — write-once</text>
+  <text x="482" y="655" class="s">not even root can delete/alter</text>
+  <text x="482" y="676" class="s m" fill="#2dd4bf">auctions/&lt;id&gt;/seal.json</text>
+
+  <rect x="696" y="594" width="222" height="92" class="box" rx="12" stroke="#2dd4bf" stroke-opacity="0.5"/>
+  <text x="716" y="619" class="t" font-size="14">Timestamp authority</text>
+  <text x="716" y="638" class="s">Ed25519 co-signature</text>
+  <text x="716" y="655" class="s">independent of the operator</text>
+  <text x="716" y="676" class="s m" fill="#2dd4bf">RFC-3161 / OpenTimestamps model</text>
+
+  <!-- verifier -->
+  <rect x="40" y="556" width="360" height="120" class="box" rx="12" stroke="#2dd4bf" stroke-opacity="0.6"/>
+  <text x="60" y="586" class="t">Standalone verifier</text>
+  <text x="60" y="606" class="s">offline · zero AWS credentials · CLI + web</text>
+  <text x="60" y="628" class="s">① reveals re-hash to their sealed commits</text>
+  <text x="60" y="646" class="s">② rebuilds the Merkle root over ordered commits</text>
+  <text x="60" y="664" class="s">③ equals the witnessed root + valid TSA signature</text>
+
+  <path class="edge" d="M462,640 C430,640 420,620 402,616"/>
+  <text x="250" y="540" class="lbl">witnessed root</text>
+  <text x="250" y="554" class="lbl">+ revealed bids</text>
+  <path class="edge" d="M250,560 L250,575 L398,602" stroke-dasharray="3 3"/>
+</svg>

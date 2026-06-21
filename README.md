@@ -44,6 +44,8 @@ A copy of the proof now exists that the operator does not control. That is the d
 
 ## Architecture
 
+![Muhuri architecture](docs/architecture.svg)
+
 ```
 Next.js (App Router) ─▶ LedgerStore ─▶ DynamoDB single table  (TransactWriteItems · ConditionExpression · Streams)
         │                   │                   ├─▶ S3 Object Lock (COMPLIANCE) ┐
@@ -85,6 +87,29 @@ npm run verify -- <proof-bundle.json>   # standalone offline verification
 bids chronologically with no client-side sort. The seal touches exactly two items (the Merkle root is
 pre-computed from a `Query`), so it is O(1) regardless of bid count.
 
+## Deploy (Vercel + AWS)
+
+Muhuri runs on the `memory` backend with zero setup. To run on real AWS:
+
+1. **Provision** (idempotent — creates the DynamoDB table with Streams enabled and the S3 Object Lock
+   bucket, and prints a timestamp-authority key):
+   ```bash
+   AWS_REGION=us-east-1 MUHURI_WITNESS_BUCKET=<globally-unique-name> npm run setup:dynamo
+   ```
+2. **Configure** the env vars it prints — `MUHURI_BACKEND=dynamo`, `MUHURI_TABLE`,
+   `MUHURI_WITNESS_BUCKET`, `AWS_REGION`, `MUHURI_TSA_PRIVATE_KEY` — plus AWS credentials, both locally
+   (`.env.local`) and in your Vercel project. See [`.env.example`](.env.example).
+3. **Deploy** to Vercel. Serverless functions are pinned to `iad1` (us-east-1) via
+   [`vercel.json`](vercel.json) to keep `TransactWriteItems` local to the table.
+4. **Verify parity** against the real table — the same invariant suite that runs against memory:
+   ```bash
+   MUHURI_TEST_DYNAMO=1 MUHURI_TABLE=Muhuri AWS_REGION=us-east-1 npm test -- parity
+   ```
+
+The DynamoDB Streams audit projection (`scripts/streamHandler.ts`) deploys as a Lambda on the table's
+stream; the app also derives the same log on read so the demo works without it.
+
 ## License
 
 MIT
+
