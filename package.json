@@ -1,0 +1,39 @@
+{
+  "name": "muhuri",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A tamper-evident notary for sealed-bid auctions and RFP procurement.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "chaos": "tsx scripts/chaos.ts",
+    "verify": "tsx scripts/verify-cli.ts",
+    "setup:dynamo": "tsx scripts/setup-dynamo.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1073.0",
+    "@aws-sdk/client-s3": "^3.1073.0",
+    "@aws-sdk/lib-dynamodb": "^3.1073.0",
+    "@aws-sdk/util-dynamodb": "^3.996.5",
+    "next": "16.2.9",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "tsx": "^4.22.4",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}
