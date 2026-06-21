@@ -46,3 +46,6 @@ HANDOFF.md
 STRATEGY*.md
 /notes
 .aws-local.json
+
+# local editor / tooling
+.claude/
