@@ -66,6 +66,7 @@ export interface VerificationResult {
   witnessedFinalChainHead: string;
   chainMatches: boolean;
   tsaValid: boolean;
+  tsaTimeConsistent: boolean;
   tsaAuthority: string;
   countMatches: boolean;
   orderingOk: boolean;
@@ -73,6 +74,14 @@ export interface VerificationResult {
   checks: VerificationCheck[];
   reasons: string[];
 }
+
+/**
+ * Max tolerated gap between the authority's co-signature time and the asserted
+ * seal time. Binding the two stops a seal from claiming a time far from when
+ * the root was actually co-signed. (It becomes adversarially load-bearing once
+ * the authority runs in a trust domain separate from the operator.)
+ */
+const MAX_TSA_SKEW_MS = 5 * 60_000;
 
 /**
  * Verify an Ed25519 timestamp-authority signature over a seal statement, using
@@ -153,9 +162,21 @@ export function verifyProofBundle(bundle: ProofBundle): VerificationResult {
     );
   }
 
-  // 4. Witness authenticity — the independent authority really signed this root.
+  // 4. Witness authenticity — the timestamp authority co-signed this exact root.
   const tsaValid = verifyTsaAnchor(witness.tsa, statement);
   if (!tsaValid) reasons.push("timestamp-authority signature failed to verify");
+
+  // 5. Temporal binding — the co-signature time must track the asserted seal
+  // time, so the recorded time cannot drift from when the root was signed.
+  const signedAtMs = Date.parse(witness.tsa.signedAt);
+  const sealedAtMs = Date.parse(statement.sealedAt);
+  const tsaTimeConsistent =
+    Number.isFinite(signedAtMs) &&
+    Number.isFinite(sealedAtMs) &&
+    Math.abs(signedAtMs - sealedAtMs) <= MAX_TSA_SKEW_MS;
+  if (!tsaTimeConsistent) {
+    reasons.push("co-signature time is inconsistent with the asserted seal time");
+  }
 
   const valid =
     rootMatches &&
@@ -163,6 +184,7 @@ export function verifyProofBundle(bundle: ProofBundle): VerificationResult {
     countMatches &&
     orderingOk &&
     tsaValid &&
+    tsaTimeConsistent &&
     badReveals.length === 0;
 
   const checks: VerificationCheck[] = [
@@ -199,6 +221,11 @@ export function verifyProofBundle(bundle: ProofBundle): VerificationResult {
       ok: tsaValid,
       detail: tsaValid ? witness.tsa.authority : "signature invalid",
     },
+    {
+      label: "Co-signature time matches the seal time",
+      ok: tsaTimeConsistent,
+      detail: tsaTimeConsistent ? "within tolerance of the seal time" : "time skew exceeds tolerance",
+    },
   ];
 
   return {
@@ -211,6 +238,7 @@ export function verifyProofBundle(bundle: ProofBundle): VerificationResult {
     witnessedFinalChainHead: statement.finalChainHead,
     chainMatches,
     tsaValid,
+    tsaTimeConsistent,
     tsaAuthority: witness.tsa.authority,
     countMatches,
     orderingOk,

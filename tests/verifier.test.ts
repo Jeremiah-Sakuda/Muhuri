@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { computeCommit, finalChainHead, merkleRoot, randomNonce } from "@/lib/crypto";
+import { WitnessImmutableError } from "@/lib/errors";
 import { MemoryStore } from "@/lib/store/MemoryStore";
+import { Ed25519Tsa } from "@/lib/store/witness/Ed25519Tsa";
+import type { WormWitness } from "@/lib/store/LedgerStore";
 import { buildProofBundle } from "@/lib/proof";
 import { verifyProofBundle, type ProofBundle } from "@/lib/verifier";
 
@@ -118,5 +121,47 @@ describe("offline verifier", () => {
     const r = verifyProofBundle(b);
     expect(r.valid).toBe(false);
     expect(r.countMatches).toBe(false);
+  });
+
+  it("temporal binding: a co-signature time far from the seal time fails even with a valid signature", async () => {
+    const b = clone(valid);
+    const statement = b.witness.statement;
+    // A timestamp authority validly co-signs this exact statement, but stamps a
+    // time an hour off from the asserted seal time.
+    const offTsa = new Ed25519Tsa({
+      clock: () => new Date(Date.parse(statement.sealedAt) + 3_600_000).toISOString(),
+    });
+    b.witness.tsa = await offTsa.sign(statement);
+    const r = verifyProofBundle(b);
+    expect(r.tsaValid).toBe(true); // the signature itself verifies…
+    expect(r.tsaTimeConsistent).toBe(false); // …but the time doesn't track the seal
+    expect(r.valid).toBe(false);
+  });
+
+  it("a failed witness yields no proof bundle — a partial seal can't read as valid", async () => {
+    const failingWorm: WormWitness = {
+      kind: "memory-worm",
+      put: async () => {
+        throw new Error("S3 PutObject failed");
+      },
+      get: async () => null,
+      overwrite: async () => {
+        throw new WitnessImmutableError("locked");
+      },
+      remove: async () => {
+        throw new WitnessImmutableError("locked");
+      },
+    };
+    const store = new MemoryStore({ worm: failingWorm });
+    const meta = await store.createAuction({ title: "witness-fails" });
+    const nonce = randomNonce();
+    await store.appendCommit(meta.auctionId, {
+      bidId: randomUUID(),
+      bidderId: "acme",
+      commit: computeCommit("100", nonce, "acme"),
+    });
+    await expect(store.seal(meta.auctionId, meta.sealToken)).rejects.toBeTruthy();
+    // CLOSED but unwitnessed → the proof builder refuses to emit a bundle.
+    await expect(buildProofBundle(store, meta.auctionId)).rejects.toBeTruthy();
   });
 });
