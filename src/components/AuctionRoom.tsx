@@ -447,6 +447,7 @@ function WitnessView({
   total: number;
 }) {
   const s = witness.statement;
+  const isS3 = witness.worm.kind === "s3-object-lock";
   const beforeDeadline = deadline ? Date.parse(s.sealedAt) <= Date.parse(deadline) : null;
   return (
     <div className="stamp-in space-y-3">
@@ -455,7 +456,7 @@ function WitnessView({
         <div className="mono text-xs text-gold break-all">{s.merkleRoot}</div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Stat label="sealed at">
+        <Stat label="operator-asserted seal">
           <span className="mono text-xs">{new Date(s.sealedAt).toLocaleString()}</span>
         </Stat>
         <Stat label="bids sealed">{s.count}</Stat>
@@ -463,19 +464,23 @@ function WitnessView({
       {beforeDeadline !== null && (
         <div className={`text-xs ${beforeDeadline ? "text-teal" : "text-danger"}`}>
           {beforeDeadline ? "✓ sealed before the deadline" : "✗ sealed after the deadline"}{" "}
-          <span className="text-faint">(witnessed time, not the operator&apos;s clock)</span>
+          <span className="text-faint">(operator-asserted seal time)</span>
         </div>
       )}
 
       <div className="border-t border-edge pt-3 space-y-2">
         <div className="text-[10px] uppercase tracking-wider text-faint">Witness quorum</div>
         <div className="flex items-center gap-2">
-          <Pill tone="teal">S3 Object Lock</Pill>
-          <span className="text-xs text-ink">COMPLIANCE</span>
+          <Pill tone="teal">{isS3 ? "S3 Object Lock" : "In-memory WORM"}</Pill>
+          <span className="text-xs text-ink">
+            {witness.worm.mode}
+            {isS3 ? "" : " (emulated)"}
+          </span>
           <span className="text-[10px] text-faint ml-auto mono">{witness.worm.key}</span>
         </div>
         <div className="text-[10px] text-faint">
-          immutable until {new Date(witness.worm.retainUntil).toLocaleDateString()} · not even root can delete
+          immutable until {new Date(witness.worm.retainUntil).toLocaleDateString()} ·{" "}
+          {isS3 ? "not even the account root can delete it" : "overwrite-refusing (emulates S3 Object Lock)"}
         </div>
         <div className="flex items-center gap-2 mt-1">
           <Pill tone="teal">Timestamp authority</Pill>
@@ -483,7 +488,7 @@ function WitnessView({
           <Hash value={witness.tsa.publicKey} chars={6} className="ml-auto" />
         </div>
         <div className="text-[10px] text-faint">
-          independent signer · {witness.tsa.authority} · verifiable offline
+          co-signs the frozen root · {witness.tsa.authority} · verifiable offline against its published key
         </div>
       </div>
 

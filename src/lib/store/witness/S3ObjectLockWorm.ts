@@ -1,14 +1,16 @@
 /**
  * Real external witness backed by Amazon S3 Object Lock (COMPLIANCE mode).
  *
- * The seal proof is written once to a deterministic key with a retention date.
- * In COMPLIANCE mode the specific object *version* cannot be overwritten or
- * deleted by anyone — not even the account root — until retention expires. We
- * pin the witnessed `versionId`, so even if the operator writes a new version
- * over the key, the verifier still reads the original immutable one.
+ * The seal proof is written once to a deterministic key (IfNoneMatch:"*" makes
+ * the first write win) with a retention date. In COMPLIANCE mode that object
+ * version cannot be overwritten or deleted by anyone — not even the account
+ * root — until retention expires, and the witnessed `versionId` is captured in
+ * the anchor so the exact immutable version can always be audited.
  *
- * This is the load-bearing non-repudiation anchor: a copy of the Merkle root
- * exists that the operator cannot control.
+ * Crucially, the offline verifier never re-reads S3: it checks the
+ * externally-held proof bundle (root + signature), so a later operator-written
+ * version of the key cannot fool it. This is the load-bearing non-repudiation
+ * anchor — a copy of the Merkle root exists that the operator cannot alter.
  */
 import {
   DeleteObjectCommand,

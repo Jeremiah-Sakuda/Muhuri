@@ -365,6 +365,9 @@ export class DynamoStore implements LedgerStore {
     if (computeCommit(input.amount, input.nonce, bid.bidderId) !== bid.commit) {
       throw new ValidationError("reveal does not match the committed value");
     }
+    // Idempotent by construction: a reveal can only ever write the one
+    // {amount, nonce} pair that opens the sealed commit, so a repeat or a
+    // concurrent duplicate writes identical values — no last-writer hazard.
     await this.doc.send(
       new UpdateCommand({
         TableName: this.table,

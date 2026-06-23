@@ -7,24 +7,32 @@ backdating, reordering, or post-hoc tampering — and lets an **outsider verify 
 trusting the operator.** (*Muhuri* is Swahili for *seal / stamp*.)
 
 > **The guarantee — non-repudiable ordering and tamper-evidence in time.**
-> No bid can be inserted, altered, reordered, or backdated after an auction seals — and the seal itself
-> was witnessed externally *before any bid could be forged*, so even the operator cannot have rigged it.
+> No bid can be inserted, altered, reordered, or backdated after an auction seals: the seal freezes a
+> cryptographic fingerprint of the exact ordered set, and an external authority co-signs that frozen
+> root — so the operator cannot pass off a different set after the fact.
+
+It's a drop-in notary for any sealed-bid process — government procurement and RFPs, M&A data rooms,
+spectrum and construction tenders, grant competitions — wherever someone is accountable when a sealed
+process is later challenged.
 
 ## Why a hash chain alone isn't enough
 
 An append-only hash chain that the operator controls proves nothing to an outsider: the operator could
 discard it and rebuild a fraudulent chain before anyone looks. Non-repudiation requires that the
-fingerprint of the sealed set be **observed by a party the operator cannot influence, at seal time.**
+fingerprint of the sealed set be **anchored where the operator cannot alter it, and co-signed by an
+authority in a separate trust domain.**
 
 Muhuri anchors every seal to an external **witness quorum**:
 
 1. **Amazon S3 Object Lock (COMPLIANCE mode)** — a write-once object that *no one*, not even the account
-   root, can overwrite or delete until retention expires.
-2. **An independent timestamp authority** — an Ed25519 co-signature over the root + time (modeling
-   RFC-3161 / OpenTimestamps), verifiable offline against a published key.
+   root, can overwrite or delete until retention expires. This is the genuinely operator-proof anchor.
+2. **A timestamp-authority co-signature** — Ed25519 over the frozen root + time (modeling RFC-3161 /
+   OpenTimestamps), verifiable offline against a published key. *In this build the authority key is
+   operator-held;* production runs it in a separate trust domain (a KMS asymmetric key, a separate
+   account, or a public TSA) so the co-signature is genuinely independent.
 
-A copy of the proof now exists that the operator does not control. That is the difference between
-"trust me" and "verify me."
+The result: a copy of the Merkle root exists that the operator cannot alter, plus a signature over that
+root they cannot forge. That is the difference between "trust me" and "verify me."
 
 ## How it works
 
@@ -34,7 +42,9 @@ A copy of the proof now exists that the operator does not control. That is the d
 2. **Seal.** One atomic **DynamoDB `TransactWriteItems`** flips the auction `OPEN → CLOSED` under a
    `ConditionExpression` and writes an immutable close-record carrying the **Merkle root** over the
    ordered commits — all-or-nothing, exactly once (`ClientRequestToken` makes a retry a no-op).
-3. **Witness.** The instant the transaction commits, the root is anchored to the external quorum above.
+3. **Witness.** Immediately after the transaction commits, the frozen root is anchored to the external
+   quorum above. (A crash in this window yields *no* proof bundle — the verifier refuses to emit one
+   without a witness — so a partial seal can never read as valid.)
 4. **Reject.** Any later commit fails the `status = OPEN` condition — the database itself refuses the
    wrong-position-in-time write.
 5. **Verify.** A standalone, offline verifier (zero AWS credentials) re-hashes each revealed bid against
@@ -84,8 +94,9 @@ npm run verify -- <proof-bundle.json>   # standalone offline verification
 | Close-record  | `AUCTION#<id>`    | `CLOSE`                     |
 
 `seq` is zero-padded so the sort-key's lexical order equals arrival order — a single `Query` returns
-bids chronologically with no client-side sort. The seal touches exactly two items (the Merkle root is
-pre-computed from a `Query`), so it is O(1) regardless of bid count.
+bids chronologically with no client-side sort. The seal **transaction** touches exactly two items (the
+Merkle root is pre-computed from a `Query` before the transaction), so the atomic write is constant-size
+regardless of bid count.
 
 ## Deploy (Vercel + AWS)
 

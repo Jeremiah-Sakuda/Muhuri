@@ -45,6 +45,7 @@ next-env.d.ts
 PRD.md
 HANDOFF.md
 STRATEGY*.md
+IMPROVEMENTS.md
 /notes
 .aws-local.json
 

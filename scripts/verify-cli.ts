@@ -87,11 +87,13 @@ async function main(): Promise<void> {
 
   console.log(`\n${C.bold}Muhuri — offline proof verification${C.reset}`);
   console.log(`${C.dim}no AWS credentials · no database · pure recomputation${C.reset}\n`);
+  const wormLabel =
+    bundle.witness.worm.kind === "s3-object-lock" ? "S3 Object Lock" : "in-memory WORM";
   console.log(`  auction        ${C.cyan}${bundle.auctionId}${C.reset}`);
-  console.log(`  sealed at      ${bundle.witness.statement.sealedAt}`);
+  console.log(`  sealed at      ${bundle.witness.statement.sealedAt} ${C.dim}(operator-asserted)${C.reset}`);
   console.log(`  witnessed root ${C.dim}${short(bundle.witness.statement.merkleRoot)}${C.reset}`);
   console.log(
-    `  witness        S3 Object Lock (${bundle.witness.worm.mode}) + ${bundle.witness.tsa.authority}`,
+    `  witness        ${wormLabel} (${bundle.witness.worm.mode}) + ${bundle.witness.tsa.authority}`,
   );
   console.log("");
 
