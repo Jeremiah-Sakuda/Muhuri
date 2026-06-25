@@ -49,6 +49,7 @@ import type {
   WormWitness,
 } from "./LedgerStore";
 import { Ed25519Tsa } from "./witness/Ed25519Tsa";
+import { demoTsaPrivateKeyPem } from "./witness/demoTsaKey";
 import { S3ObjectLockWorm } from "./witness/S3ObjectLockWorm";
 
 const DEFAULT_RETENTION_DAYS = 3650;
@@ -95,7 +96,15 @@ export class DynamoStore implements LedgerStore {
         marshallOptions: { removeUndefinedValues: true },
       });
     this.worm = opts.worm ?? new S3ObjectLockWorm({ bucket: requireEnv("MUHURI_WITNESS_BUCKET"), region: opts.region });
-    this.tsa = opts.tsa ?? new Ed25519Tsa({ kind: "ed25519-tsa", clock: this.clock, privateKeyPem: process.env.MUHURI_TSA_PRIVATE_KEY });
+    this.tsa =
+      opts.tsa ??
+      new Ed25519Tsa({
+        kind: "ed25519-tsa",
+        clock: this.clock,
+        // Production supplies a key held outside the operator; fall back to the
+        // pinned demo key so a local dynamo run still verifies.
+        privateKeyPem: process.env.MUHURI_TSA_PRIVATE_KEY ?? demoTsaPrivateKeyPem(),
+      });
     this.retentionDays = opts.retentionDays ?? DEFAULT_RETENTION_DAYS;
   }
 

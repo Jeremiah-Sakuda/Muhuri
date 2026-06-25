@@ -4,6 +4,7 @@ import { computeCommit, finalChainHead, merkleRoot, randomNonce } from "@/lib/cr
 import { WitnessImmutableError } from "@/lib/errors";
 import { MemoryStore } from "@/lib/store/MemoryStore";
 import { Ed25519Tsa } from "@/lib/store/witness/Ed25519Tsa";
+import { demoTsaPrivateKeyPem } from "@/lib/store/witness/demoTsaKey";
 import type { WormWitness } from "@/lib/store/LedgerStore";
 import { buildProofBundle } from "@/lib/proof";
 import { verifyProofBundle, type ProofBundle } from "@/lib/verifier";
@@ -126,15 +127,42 @@ describe("offline verifier", () => {
   it("temporal binding: a co-signature time far from the seal time fails even with a valid signature", async () => {
     const b = clone(valid);
     const statement = b.witness.statement;
-    // A timestamp authority validly co-signs this exact statement, but stamps a
-    // time an hour off from the asserted seal time.
+    // The published authority validly co-signs this exact statement (pinned
+    // key), but stamps a time an hour off from the asserted seal time.
     const offTsa = new Ed25519Tsa({
+      privateKeyPem: demoTsaPrivateKeyPem(),
       clock: () => new Date(Date.parse(statement.sealedAt) + 3_600_000).toISOString(),
     });
     b.witness.tsa = await offTsa.sign(statement);
     const r = verifyProofBundle(b);
     expect(r.tsaValid).toBe(true); // the signature itself verifies…
     expect(r.tsaTimeConsistent).toBe(false); // …but the time doesn't track the seal
+    expect(r.valid).toBe(false);
+  });
+
+  it("key-swap forgery: a flawless rebuild re-signed with the operator's own key is rejected", async () => {
+    // The perfect crime. The operator edits the winning bid and rebuilds
+    // EVERYTHING they control — commit, Merkle root, chain head — then re-signs
+    // the forged statement with their OWN fresh key, published in the bundle.
+    const b = clone(valid);
+    const target = b.bids[0];
+    const nonce = target.nonce ?? "0";
+    target.amount = "1";
+    target.commit = computeCommit("1", nonce, target.bidderId);
+    const commits = b.bids.map((x) => x.commit);
+    b.witness.statement.merkleRoot = merkleRoot(commits);
+    b.witness.statement.finalChainHead = finalChainHead(b.auctionId, commits);
+    const operatorKey = new Ed25519Tsa({}); // a key the operator controls — NOT the authority
+    b.witness.tsa = await operatorKey.sign(b.witness.statement);
+
+    const r = verifyProofBundle(b);
+    // Internally flawless: root, chain, reveals and time all check out…
+    expect(r.rootMatches).toBe(true);
+    expect(r.chainMatches).toBe(true);
+    expect(r.badReveals).toHaveLength(0);
+    expect(r.tsaTimeConsistent).toBe(true);
+    // …but it is NOT signed by the published authority, so it is rejected.
+    expect(r.tsaValid).toBe(false);
     expect(r.valid).toBe(false);
   });
 

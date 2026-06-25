@@ -25,6 +25,7 @@ import {
   merkleRoot,
   tsaSignedMessage,
 } from "./crypto";
+import { pinnedTsaPublicKeys } from "./tsa-pinned";
 import type { SealStatement, TsaAnchor, WitnessBundle } from "./types";
 
 /** A bid as seen by the verifier — the sealed commit, plus the reveal if given. */
@@ -85,25 +86,36 @@ const MAX_TSA_SKEW_MS = 5 * 60_000;
 
 /**
  * Verify an Ed25519 timestamp-authority signature over a seal statement, using
- * only the public key carried in the anchor. No network, no ASN.1, no AWS.
+ * the INDEPENDENTLY-PINNED authority keys — never the public key carried in the
+ * bundle. That is the whole point: an operator can rebuild a self-consistent
+ * forgery and re-sign it, but not with a key the verifier already trusts. No
+ * network, no ASN.1, no AWS.
  */
-export function verifyTsaAnchor(anchor: TsaAnchor, statement: SealStatement): boolean {
-  try {
-    if (anchor.algorithm !== "ed25519") return false;
-    const pub = createPublicKey({
-      key: Buffer.from(anchor.publicKey, "base64"),
-      format: "der",
-      type: "spki",
-    });
-    const msg = Buffer.from(tsaSignedMessage(statement, anchor.signedAt), "utf8");
-    return edVerify(null, msg, pub, Buffer.from(anchor.signature, "base64"));
-  } catch {
-    return false;
+export function verifyTsaAnchor(
+  anchor: TsaAnchor,
+  statement: SealStatement,
+  pinnedKeys: string[] = pinnedTsaPublicKeys(),
+): boolean {
+  if (anchor.algorithm !== "ed25519") return false;
+  const msg = Buffer.from(tsaSignedMessage(statement, anchor.signedAt), "utf8");
+  const sig = Buffer.from(anchor.signature, "base64");
+  for (const keyB64 of pinnedKeys) {
+    try {
+      const pub = createPublicKey({ key: Buffer.from(keyB64, "base64"), format: "der", type: "spki" });
+      if (edVerify(null, msg, pub, sig)) return true;
+    } catch {
+      /* not this key — try the next pinned key */
+    }
   }
+  return false;
 }
 
 /** Verify a proof bundle offline. The heart of Muhuri's non-repudiation. */
-export function verifyProofBundle(bundle: ProofBundle): VerificationResult {
+export function verifyProofBundle(
+  bundle: ProofBundle,
+  opts: { pinnedKeys?: string[] } = {},
+): VerificationResult {
+  const pinnedKeys = opts.pinnedKeys ?? pinnedTsaPublicKeys();
   const { witness } = bundle;
   const statement = witness.statement;
   const witnessedRoot = statement.merkleRoot;
@@ -162,9 +174,12 @@ export function verifyProofBundle(bundle: ProofBundle): VerificationResult {
     );
   }
 
-  // 4. Witness authenticity — the timestamp authority co-signed this exact root.
-  const tsaValid = verifyTsaAnchor(witness.tsa, statement);
-  if (!tsaValid) reasons.push("timestamp-authority signature failed to verify");
+  // 4. Witness authenticity — the co-signature must verify against a PINNED
+  // authority key, so a re-signed forgery (operator's own key) is rejected.
+  const tsaValid = verifyTsaAnchor(witness.tsa, statement, pinnedKeys);
+  if (!tsaValid) {
+    reasons.push("the seal is not signed by the published timestamp authority");
+  }
 
   // 5. Temporal binding — the co-signature time must track the asserted seal
   // time, so the recorded time cannot drift from when the root was signed.
@@ -217,14 +232,14 @@ export function verifyProofBundle(bundle: ProofBundle): VerificationResult {
       detail: `${bids.length} of ${statement.count}`,
     },
     {
-      label: "Timestamp authority signature is valid",
-      ok: tsaValid,
-      detail: tsaValid ? witness.tsa.authority : "signature invalid",
-    },
-    {
       label: "Co-signature time matches the seal time",
       ok: tsaTimeConsistent,
       detail: tsaTimeConsistent ? "within tolerance of the seal time" : "time skew exceeds tolerance",
+    },
+    {
+      label: "Authority signature verifies against the published key",
+      ok: tsaValid,
+      detail: tsaValid ? witness.tsa.authority : "not signed by the published authority",
     },
   ];
 

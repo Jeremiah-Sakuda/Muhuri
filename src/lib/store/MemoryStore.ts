@@ -44,6 +44,7 @@ import type {
 } from "./LedgerStore";
 import { MemoryWorm } from "./witness/MemoryWorm";
 import { Ed25519Tsa } from "./witness/Ed25519Tsa";
+import { demoTsaPrivateKeyPem } from "./witness/demoTsaKey";
 
 /** Long-term retention for the witnessed proof (10 years). */
 const DEFAULT_RETENTION_DAYS = 3650;
@@ -75,7 +76,11 @@ export class MemoryStore implements LedgerStore {
   constructor(opts: MemoryStoreOptions = {}) {
     this.clock = opts.clock ?? (() => new Date().toISOString());
     this.worm = opts.worm ?? new MemoryWorm(this.clock);
-    this.tsa = opts.tsa ?? new Ed25519Tsa({ clock: this.clock });
+    // Sign with the pinned demo authority key so honest seals verify against
+    // the verifier's independently-held key.
+    this.tsa =
+      opts.tsa ??
+      new Ed25519Tsa({ kind: "memory-tsa", clock: this.clock, privateKeyPem: demoTsaPrivateKeyPem() });
     this.retentionDays = opts.retentionDays ?? DEFAULT_RETENTION_DAYS;
   }
 
