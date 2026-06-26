@@ -227,7 +227,7 @@ export function verifyProofBundle(
       detail: chainMatches ? `head ${short(statement.finalChainHead)}` : "chain mismatch",
     },
     {
-      label: "Bid count matches the witness",
+      label: "Action count matches the witness",
       ok: countMatches,
       detail: `${bids.length} of ${statement.count}`,
     },

@@ -9,7 +9,7 @@
 
 export type AuctionStatus = "OPEN" | "CLOSED";
 
-/** Auction meta item — PK=AUCTION#<id>, SK=META. */
+/** Session meta item — PK=SESSION#<id>, SK=META. */
 export interface AuctionMeta {
   auctionId: string;
   title: string;
@@ -25,7 +25,7 @@ export interface AuctionMeta {
   createdAt: string;
 }
 
-/** A bid commit item — PK=AUCTION#<id>, SK=BID#<seq:012d>#<bidId>. */
+/** An action commit item — PK=SESSION#<id>, SK=ACTION#<seq:012d>#<id>. */
 export interface BidCommit {
   auctionId: string;
   bidId: string;
@@ -55,7 +55,7 @@ export interface SealStatement {
 /** Witness backed by write-once storage (S3 Object Lock, or the memory WORM). */
 export interface WormAnchor {
   kind: "memory-worm" | "s3-object-lock";
-  /** Deterministic key, e.g. auctions/<id>/seal.json. */
+  /** Deterministic key, e.g. sessions/<id>/seal.json. */
   key: string;
   mode: "COMPLIANCE";
   /** ISO time the object was written. */
@@ -69,10 +69,11 @@ export interface WormAnchor {
 }
 
 /**
- * Witness backed by an independent timestamp authority that *signs* the
- * statement. Models RFC-3161 / OpenTimestamps: a party that does not hold the
- * operator's database co-signs the root + time, so the operator cannot forge a
- * timestamp for a different root. Verifiable offline against the public key.
+ * Witness backed by a timestamp authority that *signs* the statement. Models
+ * RFC-3161 / OpenTimestamps: the authority co-signs the root + time, and the
+ * verifier checks the signature against an independently-pinned public key — so
+ * once the key lives outside the operator, a forged root cannot carry a valid
+ * signature. (In this build the key is operator-held; see Ed25519Tsa.)
  */
 export interface TsaAnchor {
   kind: "memory-tsa" | "ed25519-tsa";
@@ -96,7 +97,7 @@ export interface WitnessBundle {
   tsa: TsaAnchor;
 }
 
-/** Close record item — PK=AUCTION#<id>, SK=CLOSE. Written only in the seal txn. */
+/** Close record item — PK=SESSION#<id>, SK=CLOSE. Written only in the seal txn. */
 export interface CloseRecord {
   auctionId: string;
   merkleRoot: string;

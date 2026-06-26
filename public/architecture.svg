@@ -34,7 +34,7 @@
   <!-- ledgerstore -->
   <rect x="280" y="272" width="420" height="58" class="box" rx="12"/>
   <text x="300" y="297" class="t">LedgerStore <tspan class="s">— one interface, selected by MUHURI_BACKEND</tspan></text>
-  <text x="300" y="316" class="s m">createAuction · appendCommit · seal · reveal · listBids · getWitness</text>
+  <text x="300" y="316" class="s m">createSession · appendAction · seal · reveal · listActions · getWitness</text>
   <path class="edge" d="M400,330 L250,372"/>
   <path class="edge" d="M580,330 L720,372"/>
 

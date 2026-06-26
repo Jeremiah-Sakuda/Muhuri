@@ -125,7 +125,7 @@ export function invariantSuite(label: string, makeHarness: MakeHarness): void {
         ConditionalCheckError,
       );
       await expect(store.appendCommit(id, late)).rejects.toMatchObject({
-        reason: "AUCTION_CLOSED",
+        reason: "SESSION_CLOSED",
       });
 
       // The seal and the witnessed root are unchanged by the attempt.

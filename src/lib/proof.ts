@@ -12,7 +12,7 @@ export async function buildProofBundle(
   auctionId: string,
 ): Promise<ProofBundle> {
   const witness = await store.getWitness(auctionId);
-  if (!witness) throw new NotFoundError(`auction ${auctionId} is not sealed yet`);
+  if (!witness) throw new NotFoundError(`session ${auctionId} is not sealed yet`);
   const bids = await store.listBids(auctionId);
   return {
     auctionId,

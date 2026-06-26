@@ -104,8 +104,10 @@ export interface WormWitness {
 }
 
 /**
- * Independent timestamp authority. Holds a signing key the operator does not,
- * and co-signs the seal statement. Models RFC-3161 / OpenTimestamps.
+ * Timestamp authority — co-signs the seal statement. Models RFC-3161 /
+ * OpenTimestamps. It is *intended* to hold a signing key the operator does not;
+ * in this build the key is operator-held (a demo fixture), and production runs
+ * it in a separate trust domain (KMS asymmetric key / separate account).
  */
 export interface TimestampAuthority {
   readonly kind: TsaAnchor["kind"];

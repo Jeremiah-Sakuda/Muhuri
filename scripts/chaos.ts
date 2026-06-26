@@ -85,7 +85,7 @@ async function lateInsert(store: LedgerStore) {
       commit: computeCommit("9999999", randomNonce(), "Latecomer"),
     });
   } catch (err) {
-    rejected = err instanceof ConditionalCheckError && err.reason === "AUCTION_CLOSED";
+    rejected = err instanceof ConditionalCheckError && err.reason === "SESSION_CLOSED";
   }
   const after = await store.getCloseRecord(auctionId);
   assert(rejected, "1. late-insert rejected by ConditionExpression");

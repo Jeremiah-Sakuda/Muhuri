@@ -10,7 +10,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
     const store = getStore();
     const meta = await store.getAuction(id);
-    if (!meta) throw new NotFoundError(`auction ${id} not found`);
+    if (!meta) throw new NotFoundError(`session ${id} not found`);
     const [bids, close] = await Promise.all([
       store.listBids(id),
       store.getCloseRecord(id),

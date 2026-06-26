@@ -129,7 +129,7 @@ export class DynamoStore implements LedgerStore {
 
   async getChainHead(auctionId: string): Promise<string> {
     const meta = await this.getMeta(auctionId);
-    if (!meta) throw new NotFoundError(`auction ${auctionId} not found`);
+    if (!meta) throw new NotFoundError(`session ${auctionId} not found`);
     return meta.chainHead;
   }
 
@@ -190,7 +190,7 @@ export class DynamoStore implements LedgerStore {
         }),
       );
     } catch (err) {
-      if (isConditionalFailed(err)) throw new ValidationError(`auction ${auctionId} already exists`);
+      if (isConditionalFailed(err)) throw new ValidationError(`session ${auctionId} already exists`);
       throw err;
     }
     return meta;
@@ -199,9 +199,9 @@ export class DynamoStore implements LedgerStore {
   async appendCommit(auctionId: string, input: AppendCommitInput): Promise<AppendCommitResult> {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const meta = await this.getMeta(auctionId);
-      if (!meta) throw new NotFoundError(`auction ${auctionId} not found`);
+      if (!meta) throw new NotFoundError(`session ${auctionId} not found`);
       if (meta.status !== "OPEN") {
-        throw new ConditionalCheckError("AUCTION_CLOSED", `auction ${auctionId} is CLOSED; commit rejected`);
+        throw new ConditionalCheckError("SESSION_CLOSED", `session ${auctionId} is CLOSED; commit rejected`);
       }
       const seq = meta.count;
       const after = nextChainHead(meta.chainHead, input.commit, seq);
@@ -253,11 +253,11 @@ export class DynamoStore implements LedgerStore {
   async seal(auctionId: string, sealToken: string): Promise<CloseRecord> {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const meta = await this.getMeta(auctionId);
-      if (!meta) throw new NotFoundError(`auction ${auctionId} not found`);
+      if (!meta) throw new NotFoundError(`session ${auctionId} not found`);
 
       if (meta.status === "CLOSED") {
         if (meta.sealToken !== sealToken) {
-          throw new ConditionalCheckError("ALREADY_SEALED", `auction ${auctionId} is already sealed`);
+          throw new ConditionalCheckError("ALREADY_SEALED", `session ${auctionId} is already sealed`);
         }
         const existing = await this.ensureWitnessed(auctionId);
         if (existing) return existing;
@@ -407,7 +407,7 @@ export class DynamoStore implements LedgerStore {
       this.listBids(auctionId),
       this.getClose(auctionId),
     ]);
-    if (!meta) throw new NotFoundError(`auction ${auctionId} not found`);
+    if (!meta) throw new NotFoundError(`session ${auctionId} not found`);
     const events: AuditEvent[] = [];
     const push = (type: AuditEvent["type"], at: string, detail: AuditEvent["detail"]) =>
       events.push({ auctionId, seq: events.length, type, at, detail });

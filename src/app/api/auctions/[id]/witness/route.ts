@@ -9,7 +9,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params;
     const witness = await getStore().getWitness(id);
-    if (!witness) throw new NotFoundError(`auction ${id} has not been sealed`);
+    if (!witness) throw new NotFoundError(`session ${id} has not been sealed`);
     return ok(witness);
   } catch (err) {
     return fail(err);

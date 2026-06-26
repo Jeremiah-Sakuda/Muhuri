@@ -208,11 +208,23 @@ export default function AuctionRoom() {
   }
 
   async function attackForge() {
-    if (!auctionId) return;
+    if (!auctionId || !view) return;
     await run("forge", async () => {
+      // The operator can only rewrite what's been revealed — so reveal first,
+      // making "Seal → Forge" a single click instead of a silent no-op.
+      if (!view.bids.some((b) => b.revealed)) {
+        for (const bid of view.bids) {
+          const s = secrets[bid.bidId];
+          if (s) await api.reveal(auctionId, { bidId: bid.bidId, amount: s.amount, nonce: s.nonce });
+        }
+        await refresh(auctionId);
+      }
       const bundle = await api.getProof(auctionId);
-      if (!bundle.bids.some((b) => b.amount !== undefined)) return;
-      // The perfect crime: rewrite the winning bid and rebuild EVERYTHING the
+      if (!bundle.bids.some((b) => b.amount !== undefined)) {
+        logAttack("danger", "Nothing to forge", "Reveal some actions first, then forge.");
+        return;
+      }
+      // The perfect crime: rewrite a logged action and rebuild EVERYTHING the
       // operator controls — commit, Merkle root, chain head — then re-sign with
       // a fresh operator key. Internally flawless.
       const result = await forgeWinningBid(bundle);
@@ -497,6 +509,9 @@ function WitnessView({
         </div>
         <div className="text-[10px] text-faint">
           co-signs the frozen root · {witness.tsa.authority} · verifiable offline against its published key
+        </div>
+        <div className="text-[10px] text-faint">
+          authority key operator-held in this build · production = separate trust domain (KMS)
         </div>
       </div>
 

@@ -46,10 +46,10 @@ function project(record: StreamRecord): Img | null {
   if (sk === "META" && record.eventName === "INSERT") {
     eventType = "AUCTION_CREATED";
     detail = { title: img.title };
-  } else if (sk.startsWith("BID#") && record.eventName === "INSERT") {
+  } else if (sk.startsWith("ACTION#") && record.eventName === "INSERT") {
     eventType = "BID_COMMITTED";
     detail = { seq: img.seq, commit: img.commit, bidderId: img.bidderId };
-  } else if (sk.startsWith("BID#") && record.eventName === "MODIFY" && !old?.revealed && img.revealed) {
+  } else if (sk.startsWith("ACTION#") && record.eventName === "MODIFY" && !old?.revealed && img.revealed) {
     eventType = "BID_REVEALED";
     detail = { seq: img.seq, amount: img.amount };
   } else if (sk === "CLOSE" && record.eventName === "INSERT") {

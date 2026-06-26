@@ -116,7 +116,7 @@ async function main(): Promise<void> {
     for (const reason of result.reasons) console.log(`     ${C.red}•${C.reset} ${reason}`);
     if (result.badReveals.length) {
       for (const bad of result.badReveals) {
-        console.log(`     ${C.yellow}•${C.reset} bid seq ${bad.seq}: ${bad.reason}`);
+        console.log(`     ${C.yellow}•${C.reset} action seq ${bad.seq}: ${bad.reason}`);
       }
     }
     console.log("");

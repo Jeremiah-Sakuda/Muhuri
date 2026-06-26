@@ -139,7 +139,7 @@ function ResultView({ result }: { result: VerificationResult }) {
       {/* operator-claims vs witness diff */}
       <div>
         <div className="text-[10px] uppercase tracking-wider text-faint mb-1">
-          recomputed root (from revealed bids)
+          recomputed root (from revealed actions)
         </div>
         <div className={`mono text-[11px] break-all ${result.rootMatches ? "text-teal" : "text-danger"}`}>
           {result.recomputedRoot}

@@ -1,18 +1,18 @@
 /**
  * Independent timestamp authority.
  *
- * This is the second witness in the quorum, and it closes the strongest gap in
- * the "external witness" story: S3 Object Lock lives in the operator's own AWS
- * account. A timestamp authority does not. It holds a signing key the operator
- * never sees and co-signs {merkleRoot, sealedAt}, so the operator cannot
- * fabricate a timestamp for a different root. This models RFC-3161 /
- * OpenTimestamps with an Ed25519 detached signature that the standalone
- * verifier checks offline against the published public key — no ASN.1, no
- * network, no AWS credentials.
+ * This is the second witness in the quorum, and it is *designed* to close the
+ * strongest gap in the "external witness" story: S3 Object Lock lives in the
+ * operator's own AWS account; an independent timestamp authority would not. It
+ * co-signs {merkleRoot, sealedAt} so that — once its key lives outside the
+ * operator — the operator cannot fabricate a timestamp for a different root.
+ * The standalone verifier checks the Ed25519 detached signature offline against
+ * an independently-pinned public key — no ASN.1, no network, no AWS credentials.
  *
- * In production the keypair lives in a separate trust domain (its own Lambda /
- * KMS key, or a real public TSA). Here it is generated per-process for memory
- * and can be loaded from a PEM for the deployed signer.
+ * IN THIS BUILD the key is operator-held (a deterministic demo fixture; see
+ * demoTsaKey.ts), so independence is the production goal, not yet a property of
+ * this build. Production runs the keypair in a separate trust domain (its own
+ * Lambda / KMS key, or a real public TSA), loaded here from a PEM.
  */
 import {
   createPrivateKey,

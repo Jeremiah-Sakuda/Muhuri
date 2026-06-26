@@ -86,7 +86,7 @@ export class MemoryStore implements LedgerStore {
 
   private require(auctionId: string): AuctionState {
     const state = this.auctions.get(auctionId);
-    if (!state) throw new NotFoundError(`auction ${auctionId} not found`);
+    if (!state) throw new NotFoundError(`session ${auctionId} not found`);
     return state;
   }
 
@@ -107,7 +107,7 @@ export class MemoryStore implements LedgerStore {
   async createAuction(input: CreateAuctionInput = {}): Promise<AuctionMeta> {
     const auctionId = input.auctionId ?? randomUUID();
     if (this.auctions.has(auctionId)) {
-      throw new ValidationError(`auction ${auctionId} already exists`);
+      throw new ValidationError(`session ${auctionId} already exists`);
     }
     const meta: AuctionMeta = {
       auctionId,
@@ -135,8 +135,8 @@ export class MemoryStore implements LedgerStore {
     if (meta.status !== "OPEN") {
       // The database itself refuses a wrong-position-in-time write.
       throw new ConditionalCheckError(
-        "AUCTION_CLOSED",
-        `auction ${auctionId} is CLOSED; commit rejected`,
+        "SESSION_CLOSED",
+        `session ${auctionId} is CLOSED; commit rejected`,
       );
     }
     if (state.bids.some((b) => b.bidId === input.bidId)) {
@@ -177,7 +177,7 @@ export class MemoryStore implements LedgerStore {
       // (models ClientRequestToken); with the wrong token it is a conflict.
       if (meta.sealToken !== sealToken) {
         return Promise.reject(
-          new ConditionalCheckError("ALREADY_SEALED", `auction ${auctionId} is already sealed`),
+          new ConditionalCheckError("ALREADY_SEALED", `session ${auctionId} is already sealed`),
         );
       }
       return state.sealing ?? Promise.resolve({ ...state.close! });

@@ -10,7 +10,7 @@
 
 /** Why a conditional write was refused. */
 export type ConditionReason =
-  | "AUCTION_CLOSED" // append attempted after seal
+  | "SESSION_CLOSED" // append attempted after seal
   | "ALREADY_SEALED" // seal attempted on an already-sealed auction
   | "COUNT_CONFLICT" // optimistic-concurrency: bid count moved under us
   | "SEQ_CONFLICT"; // two appends raced for the same sequence slot
