@@ -4,12 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api, ApiError, type AuctionView } from "@/lib/api/client";
 import { browserComputeCommit, browserRandomNonce } from "@/lib/commit-browser";
+import { verifyProofBundleBrowser } from "@/lib/verifier.browser";
+import { forgeWinningBid, operatorConsistencyCheck, type ForgeResult } from "@/lib/forge-browser";
 import type { AuditEvent, WitnessBundle } from "@/lib/types";
 import type { VerificationResult } from "@/lib/verifier";
 import { Button, Hash, Pill, SectionTitle, Stat } from "@/components/ui";
 
 type Secret = { bidId: string; bidderId: string; amount: string; nonce: string };
 type AttackEntry = { id: number; tone: "danger" | "teal"; title: string; detail: string };
+type ForgeState = {
+  result: ForgeResult;
+  operator: { allOk: boolean; checks: { label: string; ok: boolean }[] };
+};
 
 const SESSION_KEY = "muhuri.session.v1";
 const COMPANIES = [
@@ -34,6 +40,7 @@ export default function AuctionRoom() {
   const [secrets, setSecrets] = useState<Record<string, Secret>>({});
   const [attacks, setAttacks] = useState<AttackEntry[]>([]);
   const [verifyResult, setVerifyResult] = useState<VerificationResult | null>(null);
+  const [forge, setForge] = useState<ForgeState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [bidder, setBidder] = useState(COMPANIES[0]);
@@ -101,6 +108,7 @@ export default function AuctionRoom() {
     setSecrets({});
     setAttacks([]);
     setVerifyResult(null);
+    setForge(null);
   }
 
   async function startDemo() {
@@ -115,6 +123,7 @@ export default function AuctionRoom() {
       setAttacks([]);
       setVerifyResult(null);
       setWitness(null);
+      setForge(null);
     });
   }
 
@@ -198,27 +207,22 @@ export default function AuctionRoom() {
     });
   }
 
-  async function attackTamper() {
+  async function attackForge() {
     if (!auctionId) return;
-    await run("tamper", async () => {
+    await run("forge", async () => {
       const bundle = await api.getProof(auctionId);
-      if (!bundle.bids.length) return;
-      // The operator rewrites a sealed bid AND recomputes its commit so the
-      // record stays internally consistent — but the Merkle root now diverges
-      // from the externally-witnessed one, and the verifier catches that.
-      const target = bundle.bids[0];
-      const nonce = target.nonce ?? "0";
-      const newCommit = await browserComputeCommit("1", nonce, target.bidderId);
-      const forged = structuredClone(bundle);
-      forged.bids[0] = { ...target, amount: "1", nonce, commit: newCommit };
-      const result = await api.verify(forged);
-      setVerifyResult(result);
+      if (!bundle.bids.some((b) => b.amount !== undefined)) return;
+      // The perfect crime: rewrite the winning bid and rebuild EVERYTHING the
+      // operator controls — commit, Merkle root, chain head — then re-sign with
+      // a fresh operator key. Internally flawless.
+      const result = await forgeWinningBid(bundle);
+      const operator = await operatorConsistencyCheck(result.forged);
+      setForge({ result, operator });
+      setVerifyResult(null);
       logAttack(
-        result.valid ? "danger" : "teal",
-        "Tampered bid CAUGHT",
-        result.valid
-          ? "Verifier unexpectedly accepted the forgery."
-          : "The operator edited a sealed bid; the recomputed Merkle root no longer matches the externally-witnessed root.",
+        "danger",
+        "Operator forged the winning bid",
+        `${result.bidderId}: $${Number(result.originalAmount).toLocaleString()} → $${Number(result.newAmount).toLocaleString()}. Commit, Merkle root and chain rebuilt; re-signed with the operator's own key. Their console says "all consistent" — now run the offline verifier.`,
       );
     });
   }
@@ -226,8 +230,10 @@ export default function AuctionRoom() {
   async function runVerifier() {
     if (!auctionId) return;
     await run("verify", async () => {
-      const bundle = await api.getProof(auctionId);
-      setVerifyResult(await api.verify(bundle));
+      // The forged bundle is already in memory (no network); the honest path
+      // fetches the published bundle once. Either way the CHECK runs in-browser.
+      const bundle = forge?.result.forged ?? (await api.getProof(auctionId));
+      setVerifyResult(await verifyProofBundleBrowser(bundle));
     });
   }
 
@@ -387,8 +393,8 @@ export default function AuctionRoom() {
               <Button tone="danger" size="sm" onClick={attackLateBid} disabled={!sealed || busy === "late"}>
                 ① Slip in a late bid
               </Button>
-              <Button tone="danger" size="sm" onClick={attackTamper} disabled={!sealed || busy === "tamper"}>
-                ② Tamper with a sealed bid
+              <Button tone="danger" size="sm" onClick={attackForge} disabled={!sealed || busy === "forge"}>
+                ② Forge the winning bid
               </Button>
               <Button tone="danger" size="sm" onClick={attackOverwrite} disabled={!sealed || busy === "overwrite"}>
                 ③ Overwrite the witness
@@ -416,6 +422,7 @@ export default function AuctionRoom() {
           <VerifierCard
             sealed={sealed}
             result={verifyResult}
+            forge={forge}
             onRun={runVerifier}
             running={busy === "verify"}
             auctionId={auctionId}
@@ -507,26 +514,52 @@ function WitnessView({
 function VerifierCard({
   sealed,
   result,
+  forge,
   onRun,
   running,
   auctionId,
 }: {
   sealed: boolean;
   result: VerificationResult | null;
+  forge: ForgeState | null;
   onRun: () => void;
   running: boolean;
   auctionId: string;
 }) {
   return (
     <div className="card p-5">
-      <SectionTitle title="Offline verifier" role="Auditor" hint="zero AWS creds" />
+      <SectionTitle title="Offline verifier" role="Auditor" hint="in-browser · no network" />
       <p className="text-xs text-muted mb-3">
-        Rebuilds the Merkle root from revealed bids and checks it against the externally-witnessed
-        root — the same code a losing bidder or a court would run.
+        Rebuilds the proof from revealed bids and checks the signature against the{" "}
+        <span className="text-ink">published authority key</span> — entirely in your browser, no server,
+        no network. The same code a losing bidder or a court would run.
       </p>
+
+      {forge && (
+        <div className="rounded-lg border border-gold/40 bg-gold/5 p-3 mb-3">
+          <div className="text-xs font-semibold text-gold mb-1.5">
+            Operator&apos;s console — {forge.result.bidderId} $
+            {Number(forge.result.originalAmount).toLocaleString()} → $
+            {Number(forge.result.newAmount).toLocaleString()}
+          </div>
+          <div className="space-y-0.5 mb-1.5">
+            {forge.operator.checks.map((c) => (
+              <div key={c.label} className="flex items-center gap-2 text-[11px]">
+                <span className="text-teal">✓</span>
+                <span className="text-muted">{c.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="text-[11px] text-teal font-medium">✓ all records consistent</div>
+          <div className="text-[10px] text-faint mt-1">
+            …on the operator&apos;s own screen. Don&apos;t trust theirs — run yours:
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2 mb-3">
         <Button tone="primary" size="sm" onClick={onRun} disabled={!sealed || running}>
-          {running ? "Verifying…" : "Run verifier"}
+          {running ? "Verifying…" : forge ? "Run verifier on your own machine" : "Run verifier"}
         </Button>
         <Link
           href={`/verify?auction=${auctionId}`}
@@ -542,16 +575,25 @@ function VerifierCard({
           }`}
         >
           <div className={`text-sm font-semibold mb-2 ${result.valid ? "text-teal" : "text-danger"}`}>
-            {result.valid ? "✓ VALID — proof holds" : "✗ INVALID — proof broken"}
+            {result.valid ? "✓ VALID — proof holds" : "✗ INVALID — forgery caught"}
           </div>
           <div className="space-y-1">
             {result.checks.map((c) => (
               <div key={c.label} className="flex items-start gap-2 text-[11px]">
                 <span className={c.ok ? "text-teal" : "text-danger"}>{c.ok ? "✓" : "✗"}</span>
-                <span className="text-muted flex-1">{c.label}</span>
+                <span className={`flex-1 ${c.ok ? "text-muted" : "text-danger font-medium"}`}>
+                  {c.label}
+                </span>
               </div>
             ))}
           </div>
+          {!result.valid && forge && (
+            <div className="text-[10px] text-faint mt-2 border-t border-edge pt-2">
+              Internally flawless — but not signed by the published authority. (In this build the
+              authority key is operator-held; production runs it in a separate trust domain, e.g. KMS,
+              so the operator literally cannot sign.)
+            </div>
+          )}
         </div>
       )}
     </div>

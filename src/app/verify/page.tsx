@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api/client";
+import { verifyProofBundleBrowser } from "@/lib/verifier.browser";
 import type { ProofBundle, VerificationResult } from "@/lib/verifier";
 
 export default function VerifyPage() {
@@ -24,7 +25,7 @@ export default function VerifyPage() {
     try {
       const bundle = await api.getProof(id);
       setText(JSON.stringify(bundle, null, 2));
-      setResult(await api.verify(bundle));
+      setResult(await verifyProofBundleBrowser(bundle));
     } catch (e) {
       setError(e instanceof Error ? e.message : "failed to load auction");
     } finally {
@@ -44,7 +45,7 @@ export default function VerifyPage() {
     }
     setLoading(true);
     try {
-      setResult(await api.verify(bundle));
+      setResult(await verifyProofBundleBrowser(bundle));
     } catch (e) {
       setError(e instanceof Error ? e.message : "verification failed");
     } finally {
@@ -69,8 +70,10 @@ export default function VerifyPage() {
           </div>
           <p className="text-sm text-muted mt-2 max-w-2xl">
             Recompute a sealed auction&apos;s fingerprint from its revealed bids and check it against
-            the externally-witnessed root. The same logic runs in the standalone CLI with{" "}
-            <span className="text-ink">zero AWS credentials</span>.
+            the externally-witnessed root — <span className="text-ink">entirely in your browser, no
+            server, no network</span>. The signature is checked against the published authority key the
+            verifier holds independently. The same logic runs in the standalone CLI with zero AWS
+            credentials.
           </p>
         </div>
         <Link href="/" className="text-sm text-muted hover:text-ink underline shrink-0">
