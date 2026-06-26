@@ -13,7 +13,8 @@ export default function VerifyPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("auction");
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("session") ?? params.get("auction");
     if (id) void loadAuction(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -27,7 +28,7 @@ export default function VerifyPage() {
       setText(JSON.stringify(bundle, null, 2));
       setResult(await verifyProofBundleBrowser(bundle));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "failed to load auction");
+      setError(e instanceof Error ? e.message : "failed to load session");
     } finally {
       setLoading(false);
     }
@@ -69,10 +70,10 @@ export default function VerifyPage() {
             <h1 className="text-xl font-semibold tracking-tight">Muhuri — public verifier</h1>
           </div>
           <p className="text-sm text-muted mt-2 max-w-2xl">
-            Recompute a sealed auction&apos;s fingerprint from its revealed bids and check it against
-            the externally-witnessed root — <span className="text-ink">entirely in your browser, no
-            server, no network</span>. The signature is checked against the published authority key the
-            verifier holds independently. The same logic runs in the standalone CLI with zero AWS
+            Recompute a sealed agent session&apos;s fingerprint from its revealed actions and check it
+            against the externally-witnessed root — <span className="text-ink">entirely in your browser,
+            no server, no network</span>. The signature is checked against the published authority key
+            the verifier holds independently. The same logic runs in the standalone CLI with zero AWS
             credentials.
           </p>
         </div>
@@ -87,7 +88,7 @@ export default function VerifyPage() {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder='Paste a proof bundle, upload one, or open this page with ?auction=<id>'
+            placeholder='Paste a proof bundle, upload one, or open this page with ?session=<id>'
             spellCheck={false}
             className="w-full h-64 bg-panel2 border border-edge2 rounded-lg p-3 text-[11px] mono outline-none focus:border-teal/60 scroll-thin resize-none"
           />

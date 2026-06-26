@@ -44,27 +44,44 @@ function spkiB64FromRaw(raw: Uint8Array): string {
 
 export interface ForgeResult {
   forged: ProofBundle;
-  bidderId: string;
-  originalAmount: string;
-  newAmount: string;
+  /** The action type / identity of the rewritten record. */
+  label: string;
+  originalDetail: string;
+  newDetail: string;
 }
 
-/** Rewrite the winning (lowest) bid and rebuild a self-consistent bundle. */
+/** Produce a plausibly-different forged value for a record's detail. */
+function forgeDetail(original: string): string {
+  const m = original.match(/[\d][\d,]*(\.\d+)?/);
+  if (m) {
+    const num = Number(m[0].replace(/,/g, ""));
+    if (Number.isFinite(num) && num > 0) {
+      return original.replace(m[0], String(Math.max(1, Math.round(num / 10))));
+    }
+  }
+  return `${original} (edited)`;
+}
+
+/** Rewrite the most consequential record and rebuild a self-consistent bundle. */
 export async function forgeWinningBid(bundle: ProofBundle): Promise<ForgeResult> {
   const forged: ProofBundle = structuredClone(bundle);
   const revealed = forged.bids.filter((b) => b.amount !== undefined && b.nonce !== undefined);
+  // Prefer the most consequential record to rewrite: a payment/execute action,
+  // then a currency amount, then any large number, else the last revealed.
   const target =
-    revealed.length > 0
-      ? revealed.reduce((a, b) => (Number(b.amount) < Number(a.amount) ? b : a))
-      : forged.bids[0];
+    revealed.find((b) => /payment|execute|transfer|wire/i.test(b.bidderId)) ??
+    revealed.find((b) => /\$/.test(b.amount ?? "")) ??
+    revealed.find((b) => /\d{3,}/.test(b.amount ?? "")) ??
+    revealed[revealed.length - 1] ??
+    forged.bids[0];
 
-  const originalAmount = target.amount ?? "0";
-  const newAmount = String(Math.max(1, Math.floor(Number(originalAmount) * 0.6)));
+  const originalDetail = target.amount ?? "";
+  const newDetail = forgeDetail(originalDetail);
   const nonce = target.nonce ?? "0";
 
-  // Rewrite the bid and rebuild everything the operator controls.
-  target.amount = newAmount;
-  target.commit = await browserComputeCommit(newAmount, nonce, target.bidderId);
+  // Rewrite the record and rebuild everything the operator controls.
+  target.amount = newDetail;
+  target.commit = await browserComputeCommit(newDetail, nonce, target.bidderId);
   const commits = forged.bids.map((b) => b.commit);
   forged.witness.statement.merkleRoot = await browserMerkleRoot(commits);
   forged.witness.statement.finalChainHead = await browserFinalChainHead(forged.auctionId, commits);
@@ -84,7 +101,7 @@ export async function forgeWinningBid(bundle: ProofBundle): Promise<ForgeResult>
     signedAt,
   };
 
-  return { forged, bidderId: target.bidderId, originalAmount, newAmount };
+  return { forged, label: target.bidderId, originalDetail, newDetail };
 }
 
 export interface OperatorCheck {

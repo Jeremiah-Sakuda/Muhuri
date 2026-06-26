@@ -33,12 +33,12 @@ function short(hex: string): string {
 
 async function demoBundle(tamper: boolean): Promise<ProofBundle> {
   const store = new MemoryStore();
-  const meta = await store.createAuction({ title: "Demo — bridge maintenance tender" });
+  const meta = await store.createAuction({ title: "Demo — agent session payments-ops-bot" });
   const id = meta.auctionId;
   const inputs = [
-    { bidderId: "acme-infra", amount: "2480000" },
-    { bidderId: "globex-build", amount: "2399000" },
-    { bidderId: "initech-civil", amount: "2515000" },
+    { bidderId: "read_file", amount: "/data/customer_records.csv" },
+    { bidderId: "db_query", amount: "SELECT * FROM payouts WHERE status='pending'" },
+    { bidderId: "execute_payment", amount: "$48,500 -> Vendor-7741" },
   ];
   const reveals: { bidId: string; amount: string; nonce: string }[] = [];
   for (const i of inputs) {
@@ -56,8 +56,8 @@ async function demoBundle(tamper: boolean): Promise<ProofBundle> {
   const bundle = await buildProofBundle(store, id);
 
   if (tamper) {
-    // The operator rewrites the winning bid after the fact.
-    bundle.bids[1].amount = "1000000";
+    // The operator rewrites a logged action after the fact.
+    bundle.bids[2].amount = "$4,850 -> Vendor-0001";
   }
   return bundle;
 }
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
   console.log(`${C.dim}no AWS credentials · no database · pure recomputation${C.reset}\n`);
   const wormLabel =
     bundle.witness.worm.kind === "s3-object-lock" ? "S3 Object Lock" : "in-memory WORM";
-  console.log(`  auction        ${C.cyan}${bundle.auctionId}${C.reset}`);
+  console.log(`  session        ${C.cyan}${bundle.auctionId}${C.reset}`);
   console.log(`  sealed at      ${bundle.witness.statement.sealedAt} ${C.dim}(operator-asserted)${C.reset}`);
   console.log(`  witnessed root ${C.dim}${short(bundle.witness.statement.merkleRoot)}${C.reset}`);
   console.log(

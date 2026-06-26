@@ -1,25 +1,30 @@
 # Muhuri
 
-**A tamper-evident notary for sealed-bid auctions and RFP procurement.**
+**A tamper-evident flight-data recorder for autonomous AI agents.**
 
-Muhuri proves that a set of bids happened **in a specific order, before a deadline** — with no
-backdating, reordering, or post-hoc tampering — and lets an **outsider verify it independently, without
-trusting the operator.** (*Muhuri* is Swahili for *seal / stamp*.)
+Muhuri proves the **exact ordered sequence of actions an autonomous AI agent took** — which tool it
+called, with what, and in what order, before a given moment — with no backdating, reordering, or
+post-hoc tampering, and lets an **outsider verify it independently, offline, without trusting the
+operator.** (*Muhuri* is Swahili for *seal / stamp*.)
+
+When an agent reads a file, queries a database, sends an email, or executes a payment, there is today no
+non-repudiable record an outsider can trust — an operator-controlled log can be discarded and rebuilt.
+Muhuri closes that agent-accountability gap: a regulator, an incident responder, or a court can prove
+what the agent did, in what order, with zero operator trust.
 
 > **The guarantee — non-repudiable ordering and tamper-evidence in time.**
-> No bid can be inserted, altered, reordered, or backdated after an auction seals: the seal freezes a
-> cryptographic fingerprint of the exact ordered set, and an external authority co-signs that frozen
-> root — so the operator cannot pass off a different set after the fact.
+> No action can be inserted, altered, reordered, or backdated after a session seals: the seal freezes a
+> cryptographic fingerprint of the exact ordered action log, and an external authority co-signs that
+> frozen root — so the operator cannot pass off a different log after the fact.
 
-It's a drop-in notary for any sealed-bid process — government procurement and RFPs, M&A data rooms,
-spectrum and construction tenders, grant competitions — wherever someone is accountable when a sealed
-process is later challenged.
+The same write-once anchor (S3 Object Lock, COMPLIANCE mode) also satisfies **SEC 17a-4(f) / FINRA**
+WORM-retention mandates — a second, concrete, regulated buyer beyond agent platforms.
 
 ## Why a hash chain alone isn't enough
 
 An append-only hash chain that the operator controls proves nothing to an outsider: the operator could
 discard it and rebuild a fraudulent chain before anyone looks. Non-repudiation requires that the
-fingerprint of the sealed set be **anchored where the operator cannot alter it, and co-signed by an
+fingerprint of the sealed log be **anchored where the operator cannot alter it, and co-signed by an
 authority in a separate trust domain.**
 
 Muhuri anchors every seal to an external **witness quorum**:
@@ -36,21 +41,23 @@ root they cannot forge. That is the difference between "trust me" and "verify me
 
 ## How it works
 
-1. **Commit.** Each bid is hash-committed — `commit = SHA256(amount ‖ nonce ‖ bidderId)` — and folded
-   into an append-only chain that fixes order: `chainHead_n = SHA256(chainHead_{n-1} ‖ commit_n ‖ seq_n)`.
-   The amount stays secret until reveal. The public chain head is shown live.
-2. **Seal.** One atomic **DynamoDB `TransactWriteItems`** flips the auction `OPEN → CLOSED` under a
+1. **Commit.** Each action is hash-committed — `commit = SHA256(detail ‖ nonce ‖ actionType)` — and
+   folded into an append-only chain that fixes order: `chainHead_n = SHA256(chainHead_{n-1} ‖ commit_n ‖ seq_n)`.
+   The action detail stays private until reveal. The public chain head is shown live.
+2. **Seal.** One atomic **DynamoDB `TransactWriteItems`** flips the session `OPEN → SEALED` under a
    `ConditionExpression` and writes an immutable close-record carrying the **Merkle root** over the
    ordered commits — all-or-nothing, exactly once (`ClientRequestToken` makes a retry a no-op).
 3. **Witness.** Immediately after the transaction commits, the frozen root is anchored to the external
    quorum above. (A crash in this window yields *no* proof bundle — the verifier refuses to emit one
    without a witness — so a partial seal can never read as valid.)
-4. **Reject.** Any later commit fails the `status = OPEN` condition — the database itself refuses the
+4. **Reject.** Any later action fails the `status = OPEN` condition — the database itself refuses the
    wrong-position-in-time write.
-5. **Verify.** A standalone, offline verifier (zero AWS credentials) re-hashes each revealed bid against
-   its commit, rebuilds the Merkle root over the ordered commits, and asserts it equals the witnessed
-   root. Any swap, edit, reorder, or backdate changes a leaf or its position → the root changes → caught
-   by math, not by trusting the database.
+5. **Verify.** A standalone, offline verifier (zero AWS credentials, runs in the browser) re-hashes each
+   revealed action against its commit, rebuilds the Merkle root over the ordered commits and asserts it
+   equals the witnessed root, and checks the authority signature against an **independently-pinned key**.
+   Any swap, edit, reorder, or backdate changes a leaf or its position → the root changes; and a forgery
+   re-signed with the operator's own key fails the pinned-key check → caught by math, not by trusting the
+   database.
 
 ## Architecture
 
@@ -87,16 +94,16 @@ npm run verify -- <proof-bundle.json>   # standalone offline verification
 
 ## Single-table design
 
-| Entity        | PK                | SK                          |
-| ------------- | ----------------- | --------------------------- |
-| Auction meta  | `AUCTION#<id>`    | `META`                      |
-| Bid commit    | `AUCTION#<id>`    | `BID#<seq:012d>#<bidId>`    |
-| Close-record  | `AUCTION#<id>`    | `CLOSE`                     |
+| Entity         | PK                | SK                           |
+| -------------- | ----------------- | ---------------------------- |
+| Session meta   | `SESSION#<id>`    | `META`                       |
+| Action commit  | `SESSION#<id>`    | `ACTION#<seq:012d>#<id>`     |
+| Close-record   | `SESSION#<id>`    | `CLOSE`                      |
 
 `seq` is zero-padded so the sort-key's lexical order equals arrival order — a single `Query` returns
-bids chronologically with no client-side sort. The seal **transaction** touches exactly two items (the
-Merkle root is pre-computed from a `Query` before the transaction), so the atomic write is constant-size
-regardless of bid count.
+actions chronologically with no client-side sort. The seal **transaction** touches exactly two items
+(the Merkle root is pre-computed from a `Query` before the transaction), so the atomic write is
+constant-size regardless of action count.
 
 ## Deploy (Vercel + AWS)
 

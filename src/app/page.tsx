@@ -16,12 +16,12 @@ export default function Home() {
               🪔
             </span>
             <h1 className="text-xl font-semibold tracking-tight">Muhuri</h1>
-            <span className="chip text-muted border-edge2 ml-1">notary</span>
+            <span className="chip text-muted border-edge2 ml-1">agent provenance</span>
           </div>
           <p className="text-sm text-muted mt-2 max-w-2xl">
-            A tamper-evident notary for sealed-bid auctions. Prove a set of bids happened{" "}
-            <span className="text-ink">in a specific order, before a deadline</span> — verifiable by
-            anyone, <span className="text-ink">without trusting the operator</span>.
+            A flight-data recorder for autonomous AI agents. Prove{" "}
+            <span className="text-ink">the exact actions an agent took, in order, before a deadline</span>{" "}
+            — to a regulator, in court, <span className="text-ink">without trusting the operator</span>.
           </p>
         </div>
         <div className="text-right shrink-0">

@@ -41,10 +41,10 @@ export function Pill({
   return <span className={`chip ${tones[tone]}`}>{children}</span>;
 }
 
-export function RoleChip({ role }: { role: "Bidder" | "Organizer" | "Auditor" }) {
+export function RoleChip({ role }: { role: "Agent" | "Operator" | "Auditor" }) {
   const colors: Record<string, string> = {
-    Bidder: "text-cyan border-cyan/30",
-    Organizer: "text-gold border-gold/30",
+    Agent: "text-cyan border-cyan/30",
+    Operator: "text-gold border-gold/30",
     Auditor: "text-teal border-teal/30",
   };
   return (
@@ -105,7 +105,7 @@ export function SectionTitle({
   hint,
 }: {
   title: string;
-  role?: "Bidder" | "Organizer" | "Auditor";
+  role?: "Agent" | "Operator" | "Auditor";
   hint?: string;
 }) {
   return (

@@ -1,0 +1,70 @@
+{
+  "auctionId": "demo-session-payments-ops-bot",
+  "witness": {
+    "statement": {
+      "auctionId": "demo-session-payments-ops-bot",
+      "merkleRoot": "233dcf0279b3dddd0b89f32d44185e2faccb51c20cbb2d7994548f5db9ff794a",
+      "finalChainHead": "3c8db3f873ca55d832a4845d05c03cd1de85b0cd55e90b24435146b55e5015d2",
+      "count": 5,
+      "sealedAt": "2026-06-26T16:00:00.000Z"
+    },
+    "worm": {
+      "kind": "memory-worm",
+      "key": "sessions/demo-session-payments-ops-bot/seal.json",
+      "mode": "COMPLIANCE",
+      "storedAt": "2026-06-26T16:00:00.000Z",
+      "retainUntil": "2036-06-23T16:00:00.000Z",
+      "uri": "worm://memory/sessions/demo-session-payments-ops-bot/seal.json"
+    },
+    "tsa": {
+      "kind": "memory-tsa",
+      "authority": "Muhuri timestamp authority (local)",
+      "algorithm": "ed25519",
+      "publicKey": "MCowBQYDK2VwAyEAPdljhTm4GPX60M0bUNITPr+06NAT3Vj4mzcZALAaMa8=",
+      "signature": "ZkSI2TN/1hUQsGaHfqslYXScchA8ruFxunlIaT0BDnB1ya9oAp0iXsngP2UWDEhBNZHlqzC1KIwFhWKfuB3rAw==",
+      "signedAt": "2026-06-26T16:00:00.000Z"
+    }
+  },
+  "bids": [
+    {
+      "seq": 0,
+      "bidId": "6168a7e6-e36a-489d-91f6-7bdfccbc51ce",
+      "bidderId": "read_file",
+      "commit": "5e6a3f08c7e38599c821a2dbe32b43bfaacf54925df56d92b9175a6a3bf6a422",
+      "amount": "/data/customer_records.csv",
+      "nonce": "95a7b01c5c3f3d8930f01237fa26255b"
+    },
+    {
+      "seq": 1,
+      "bidId": "1ed8cf86-fdf9-4040-a942-dd2b80f497b4",
+      "bidderId": "web_search",
+      "commit": "3d4c194625d7d593c161dba700f708572bf93e7575adefda8733826b638f62be",
+      "amount": "vendor invoice dispute resolution",
+      "nonce": "db7c6851256107c5de35c7ab1e7473de"
+    },
+    {
+      "seq": 2,
+      "bidId": "646ed3c5-06a2-44f5-8a36-e869226c1d68",
+      "bidderId": "db_query",
+      "commit": "b0780a7c32f24d189e22a912f9f4b968f866a9bf82634aa1fda696117f8e04d1",
+      "amount": "SELECT * FROM payouts WHERE status='pending'",
+      "nonce": "410b0758de4dac528484ec2d3c40e4e9"
+    },
+    {
+      "seq": 3,
+      "bidId": "b639f9bd-a524-407e-b27a-dcb067f930fa",
+      "bidderId": "send_email",
+      "commit": "af1d5f32efdd8b344638554ecce670bd085cf47537da7896db58ca289454576e",
+      "amount": "to: finance@acme.com - approve Vendor-7741",
+      "nonce": "f7e1e9c4960c01d9064d4685ac2d50bc"
+    },
+    {
+      "seq": 4,
+      "bidId": "b40867e1-34a4-409e-abaf-ca88e9329bef",
+      "bidderId": "execute_payment",
+      "commit": "0b17884bbcb8ff3acf109c6df10e608040d580b76352322b40a8620ba5622b8c",
+      "amount": "$48,500 -> Vendor-7741",
+      "nonce": "824afa7e038b4d16dbf0dca4f8538574"
+    }
+  ]
+}

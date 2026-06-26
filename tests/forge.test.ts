@@ -29,8 +29,9 @@ async function sealedBundle(): Promise<ProofBundle> {
 describe("forge-and-rebuild (the perfect crime)", () => {
   it("operator console passes, but the offline verifier rejects on the authority signature alone", async () => {
     const honest = await sealedBundle();
-    const { forged, originalAmount, newAmount } = await forgeWinningBid(honest);
-    expect(Number(newAmount)).toBeLessThan(Number(originalAmount));
+    const { forged, originalDetail, newDetail } = await forgeWinningBid(honest);
+    expect(newDetail).not.toBe(originalDetail);
+    expect(Number(newDetail)).toBeLessThan(Number(originalDetail));
 
     // The operator's own console: everything is internally consistent.
     const op = await operatorConsistencyCheck(forged);

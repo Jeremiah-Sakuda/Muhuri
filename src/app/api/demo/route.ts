@@ -5,42 +5,46 @@ import { computeCommit, randomNonce } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_BIDDERS = [
-  "Acme Infrastructure",
-  "Globex Networks",
-  "Initech Civil",
-  "Umbrella Telecom",
+/** A seeded autonomous-agent action trace: what the agent did, in order. */
+const DEFAULT_TRACE: { actionType: string; detail: string }[] = [
+  { actionType: "read_file", detail: "/data/customer_records.csv" },
+  { actionType: "web_search", detail: "vendor invoice dispute resolution" },
+  { actionType: "db_query", detail: "SELECT * FROM payouts WHERE status='pending'" },
+  { actionType: "send_email", detail: "to: finance@acme.com — approve Vendor-7741" },
+  { actionType: "execute_payment", detail: "$48,500 → Vendor-7741" },
 ];
 
 /**
- * Seed a demo auction with a handful of committed bids. Returns the reveals so
- * the UI can open them after sealing. (Convenience only — the manual bid flow
- * commits client-side so the amount never reaches the server until reveal.)
+ * Seed a demo agent session with a handful of committed actions. Returns the
+ * reveals so the UI can open them after sealing. (Convenience only — the manual
+ * "log action" flow commits client-side so the detail never reaches the server
+ * until reveal.)
  */
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as {
       title?: string;
       deadline?: string;
-      bidders?: string[];
+      actions?: { actionType: string; detail: string }[];
     };
     const store = getStore();
     const meta = await store.createAuction({
-      title: body.title ?? "Municipal fiber-optic build-out — RFP-2026-114",
+      title: body.title ?? "Agent session — payments-ops-bot · run 4f2a91",
       deadline: body.deadline,
     });
-    const bidders = body.bidders ?? DEFAULT_BIDDERS;
+    const actions = body.actions ?? DEFAULT_TRACE;
+    // `bidderId` carries the action type; the committed secret (`amount`) carries
+    // the action detail. The cryptographic core is unchanged.
     const reveals: { bidId: string; bidderId: string; amount: string; nonce: string }[] = [];
-    for (const bidderId of bidders) {
-      const amount = String(900_000 + Math.floor(Math.random() * 300_000));
+    for (const action of actions) {
       const nonce = randomNonce();
       const bidId = randomUUID();
       await store.appendCommit(meta.auctionId, {
         bidId,
-        bidderId,
-        commit: computeCommit(amount, nonce, bidderId),
+        bidderId: action.actionType,
+        commit: computeCommit(action.detail, nonce, action.actionType),
       });
-      reveals.push({ bidId, bidderId, amount, nonce });
+      reveals.push({ bidId, bidderId: action.actionType, amount: action.detail, nonce });
     }
     return ok({ auctionId: meta.auctionId, sealToken: meta.sealToken, reveals }, 201);
   } catch (err) {

@@ -18,13 +18,13 @@ type ForgeState = {
 };
 
 const SESSION_KEY = "muhuri.session.v1";
-const COMPANIES = [
-  "Acme Infrastructure",
-  "Globex Networks",
-  "Initech Civil",
-  "Umbrella Telecom",
-  "Soylent Works",
-  "Hooli Build",
+const ACTION_TYPES = [
+  "read_file",
+  "web_search",
+  "db_query",
+  "http_request",
+  "send_email",
+  "execute_payment",
 ];
 
 function uuid(): string {
@@ -43,7 +43,7 @@ export default function AuctionRoom() {
   const [forge, setForge] = useState<ForgeState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
-  const [bidder, setBidder] = useState(COMPANIES[0]);
+  const [bidder, setBidder] = useState(ACTION_TYPES[0]);
   const attackId = useRef(0);
 
   const sealed = view?.meta.status === "CLOSED";
@@ -136,7 +136,7 @@ export default function AuctionRoom() {
       await api.appendBid(auctionId, { bidId, commit, bidderId: bidder });
       setSecrets((s) => ({ ...s, [bidId]: { bidId, bidderId: bidder, amount: amount.trim(), nonce } }));
       setAmount("");
-      setBidder(COMPANIES[Math.floor(Math.random() * COMPANIES.length)]);
+      setBidder(ACTION_TYPES[Math.floor(Math.random() * ACTION_TYPES.length)]);
       await refresh(auctionId);
     });
   }
@@ -172,16 +172,16 @@ export default function AuctionRoom() {
       try {
         await api.appendBid(auctionId, {
           bidId: uuid(),
-          bidderId: "Backroom Bidder",
+          bidderId: "delete_logs",
           commit: "f".repeat(64),
         });
-        logAttack("danger", "Late bid slipped in?!", "The append unexpectedly succeeded.");
+        logAttack("danger", "Back-dated action slipped in?!", "The append unexpectedly succeeded.");
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
           logAttack(
             "teal",
-            "Late bid REJECTED",
-            `DynamoDB ConditionExpression (status = OPEN) failed — the auction is CLOSED. Wrong position in time, refused by the database itself (${err.reason}).`,
+            "Back-dated action REJECTED",
+            `DynamoDB ConditionExpression (status = OPEN) failed — the session is SEALED. Wrong position in time, refused by the database itself (${err.reason}).`,
           );
         } else throw err;
       }
@@ -194,13 +194,13 @@ export default function AuctionRoom() {
     await run("overwrite", async () => {
       try {
         await api.attackOverwrite(auctionId);
-        logAttack("danger", "Witness overwritten?!", "The witness unexpectedly accepted a rewrite.");
+        logAttack("danger", "Witnessed log overwritten?!", "The witness unexpectedly accepted a rewrite.");
       } catch (err) {
         if (err instanceof ApiError && err.status === 403) {
           logAttack(
             "teal",
-            "Witness overwrite REFUSED",
-            "S3 Object Lock (COMPLIANCE) refuses to overwrite or delete the sealed proof — not even the account root can. The external copy is immutable.",
+            "Witnessed log overwrite REFUSED",
+            "S3 Object Lock (COMPLIANCE) refuses to overwrite or delete the witnessed log — not even the account root can. The external copy is immutable.",
           );
         } else throw err;
       }
@@ -221,8 +221,8 @@ export default function AuctionRoom() {
       setVerifyResult(null);
       logAttack(
         "danger",
-        "Operator forged the winning bid",
-        `${result.bidderId}: $${Number(result.originalAmount).toLocaleString()} → $${Number(result.newAmount).toLocaleString()}. Commit, Merkle root and chain rebuilt; re-signed with the operator's own key. Their console says "all consistent" — now run the offline verifier.`,
+        "Operator forged a logged action",
+        `${result.label}: "${result.originalDetail}" → "${result.newDetail}". Commit, Merkle root and chain rebuilt; re-signed with the operator's own key. Their console says "all consistent" — now run the offline verifier.`,
       );
     });
   }
@@ -247,14 +247,15 @@ export default function AuctionRoom() {
     return (
       <div className="card p-10 text-center max-w-2xl mx-auto mt-10">
         <div className="text-5xl mb-4">🪔</div>
-        <h2 className="text-xl font-semibold mb-2">Notarize a sealed-bid auction</h2>
+        <h2 className="text-xl font-semibold mb-2">Record an autonomous agent&apos;s actions</h2>
         <p className="text-muted text-sm mb-6 max-w-md mx-auto">
-          Bids are hash-committed and chained as they arrive. At the deadline, one atomic database
-          transaction seals the set and an external witness anchors the proof — verifiable by anyone.
+          Each action an AI agent takes is hash-committed and chained as it happens. The session seals
+          into a Merkle root an external witness co-signs — so a regulator can prove, offline, exactly
+          what the agent did and in what order, without trusting the operator.
         </p>
         <div className="flex gap-3 justify-center">
           <Button tone="primary" onClick={startDemo} disabled={busy === "demo"}>
-            {busy === "demo" ? "Seeding…" : "Start a demo auction"}
+            {busy === "demo" ? "Seeding…" : "Start a demo session"}
           </Button>
           <Link href="/verify" className="text-sm text-muted hover:text-ink self-center underline">
             or open the public verifier →
@@ -282,7 +283,7 @@ export default function AuctionRoom() {
             </div>
             <h2 className="text-lg font-semibold text-ink">{view.meta.title}</h2>
             <div className="text-xs text-faint mt-1">
-              auction <span className="mono">{view.meta.auctionId.slice(0, 8)}</span> · {view.meta.count} bids
+              session <span className="mono">{view.meta.auctionId.slice(0, 8)}</span> · {view.meta.count} actions
             </div>
           </div>
           <div className="min-w-[260px]">
@@ -302,24 +303,27 @@ export default function AuctionRoom() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* LEFT — chain + bid form */}
         <div className="card p-5">
-          <SectionTitle title="Commitment chain" role="Bidder" hint={`${view.bids.length} links`} />
+          <SectionTitle title="Action log" role="Agent" hint={`${view.bids.length} actions`} />
           <div className="space-y-2 max-h-[320px] overflow-auto scroll-thin pr-1">
-            {view.bids.length === 0 && <p className="text-sm text-faint">No bids yet.</p>}
+            {view.bids.length === 0 && <p className="text-sm text-faint">No actions yet.</p>}
             {view.bids.map((b) => (
               <div key={b.bidId} className="slide-in rounded-lg border border-edge bg-panel2 px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="mono text-[11px] text-faint">
                     #{String(b.seq).padStart(3, "0")}
                   </span>
-                  <span className="text-xs text-ink truncate flex-1">{b.bidderId}</span>
+                  <span className="mono text-xs text-cyan truncate flex-1">{b.bidderId}()</span>
                   {b.revealed ? (
-                    <span className="text-xs text-teal font-medium">
-                      ${Number(b.amount).toLocaleString()}
-                    </span>
+                    <span className="text-[10px] text-teal">revealed</span>
                   ) : (
                     <span className="text-[10px] text-faint italic">sealed</span>
                   )}
                 </div>
+                {b.revealed && b.amount && (
+                  <div className="text-[11px] text-ink mt-1 truncate" title={b.amount}>
+                    {b.amount}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] text-faint">commit</span>
                   <Hash value={b.commit} chars={6} />
@@ -330,32 +334,29 @@ export default function AuctionRoom() {
           {!sealed && (
             <div className="mt-4 border-t border-edge pt-4">
               <div className="flex gap-2">
-                <input
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
-                  placeholder="bid amount"
-                  inputMode="numeric"
-                  className="flex-1 bg-panel2 border border-edge2 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal/60 mono"
-                />
-                <Button tone="primary" size="sm" onClick={placeBid} disabled={busy === "bid" || !amount}>
-                  Commit
-                </Button>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
                 <select
                   value={bidder}
                   onChange={(e) => setBidder(e.target.value)}
-                  className="bg-panel2 border border-edge2 rounded-lg px-2 py-1.5 text-xs text-muted outline-none"
+                  className="bg-panel2 border border-edge2 rounded-lg px-2 py-2 text-xs text-cyan mono outline-none"
                 >
-                  {COMPANIES.map((c) => (
+                  {ACTION_TYPES.map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>
                   ))}
                 </select>
-                <span className="text-[10px] text-faint">
-                  amount hashed in your browser — hidden until reveal
-                </span>
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="action detail"
+                  className="flex-1 bg-panel2 border border-edge2 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal/60 mono"
+                />
+                <Button tone="primary" size="sm" onClick={placeBid} disabled={busy === "bid" || !amount}>
+                  Log
+                </Button>
+              </div>
+              <div className="text-[10px] text-faint mt-2">
+                detail hashed in your browser — committed but hidden until reveal
               </div>
             </div>
           )}
@@ -363,19 +364,19 @@ export default function AuctionRoom() {
 
         {/* MIDDLE — seal + witness */}
         <div className="card p-5">
-          <SectionTitle title="The seal" role="Organizer" hint={sealed ? "closed" : "open"} />
+          <SectionTitle title="The seal" role="Operator" hint={sealed ? "closed" : "open"} />
           {!sealed ? (
             <div className="text-center py-6">
               <p className="text-sm text-muted mb-5">
-                One atomic <span className="mono text-cyan">TransactWriteItems</span> flips the auction
-                to <span className="text-gold">CLOSED</span> and freezes the Merkle root over the
-                ordered commits — then anchors it to the external witness.
+                One atomic <span className="mono text-cyan">TransactWriteItems</span> flips the session
+                to <span className="text-gold">SEALED</span> and freezes the Merkle root over the
+                ordered actions — then anchors it to the external witness.
               </p>
               <Button tone="gold" onClick={seal} disabled={busy === "seal" || view.bids.length === 0}>
-                {busy === "seal" ? "Sealing…" : "🪔 Seal the auction"}
+                {busy === "seal" ? "Sealing…" : "🪔 Seal the session"}
               </Button>
               {view.bids.length === 0 && (
-                <p className="text-[11px] text-faint mt-2">add at least one bid first</p>
+                <p className="text-[11px] text-faint mt-2">log at least one action first</p>
               )}
             </div>
           ) : witness ? (
@@ -391,15 +392,15 @@ export default function AuctionRoom() {
             <SectionTitle title="Attacks" role="Auditor" hint="prove it holds" />
             <div className="grid grid-cols-1 gap-2">
               <Button tone="danger" size="sm" onClick={attackLateBid} disabled={!sealed || busy === "late"}>
-                ① Slip in a late bid
+                ① Inject a back-dated action
               </Button>
               <Button tone="danger" size="sm" onClick={attackForge} disabled={!sealed || busy === "forge"}>
-                ② Forge the winning bid
+                ② Forge a logged action
               </Button>
               <Button tone="danger" size="sm" onClick={attackOverwrite} disabled={!sealed || busy === "overwrite"}>
-                ③ Overwrite the witness
+                ③ Overwrite the witnessed log
               </Button>
-              {!sealed && <p className="text-[11px] text-faint">seal the auction to run attacks</p>}
+              {!sealed && <p className="text-[11px] text-faint">seal the session to run attacks</p>}
             </div>
             <div className="mt-3 space-y-2">
               {attacks.map((a) => (
@@ -466,7 +467,7 @@ function WitnessView({
         <Stat label="operator-asserted seal">
           <span className="mono text-xs">{new Date(s.sealedAt).toLocaleString()}</span>
         </Stat>
-        <Stat label="bids sealed">{s.count}</Stat>
+        <Stat label="actions sealed">{s.count}</Stat>
       </div>
       {beforeDeadline !== null && (
         <div className={`text-xs ${beforeDeadline ? "text-teal" : "text-danger"}`}>
@@ -501,7 +502,7 @@ function WitnessView({
 
       <div className="flex gap-2 pt-1">
         <Button tone="primary" size="sm" onClick={onReveal} disabled={revealing || revealed === total}>
-          {revealed === total ? `Revealed ${revealed}/${total}` : revealing ? "Revealing…" : `Reveal bids (${revealed}/${total})`}
+          {revealed === total ? `Revealed ${revealed}/${total}` : revealing ? "Revealing…" : `Reveal actions (${revealed}/${total})`}
         </Button>
         <Button size="sm" onClick={onDownload}>
           ⤓ Proof bundle
@@ -530,17 +531,16 @@ function VerifierCard({
     <div className="card p-5">
       <SectionTitle title="Offline verifier" role="Auditor" hint="in-browser · no network" />
       <p className="text-xs text-muted mb-3">
-        Rebuilds the proof from revealed bids and checks the signature against the{" "}
+        Rebuilds the proof from the revealed actions and checks the signature against the{" "}
         <span className="text-ink">published authority key</span> — entirely in your browser, no server,
-        no network. The same code a losing bidder or a court would run.
+        no network. The same code a regulator or a court would run.
       </p>
 
       {forge && (
         <div className="rounded-lg border border-gold/40 bg-gold/5 p-3 mb-3">
           <div className="text-xs font-semibold text-gold mb-1.5">
-            Operator&apos;s console — {forge.result.bidderId} $
-            {Number(forge.result.originalAmount).toLocaleString()} → $
-            {Number(forge.result.newAmount).toLocaleString()}
+            Operator&apos;s console — <span className="mono">{forge.result.label}()</span>:{" "}
+            {forge.result.originalDetail} → {forge.result.newDetail}
           </div>
           <div className="space-y-0.5 mb-1.5">
             {forge.operator.checks.map((c) => (
@@ -562,7 +562,7 @@ function VerifierCard({
           {running ? "Verifying…" : forge ? "Run verifier on your own machine" : "Run verifier"}
         </Button>
         <Link
-          href={`/verify?auction=${auctionId}`}
+          href={`/verify?session=${auctionId}`}
           className="text-xs text-muted hover:text-ink self-center underline"
         >
           public page →
@@ -601,7 +601,7 @@ function VerifierCard({
 }
 
 function LedgerPanel({ events, auctionId }: { events: AuditEvent[]; auctionId: string }) {
-  const pk = `AUCTION#${auctionId.slice(0, 8)}…`;
+  const pk = `SESSION#${auctionId.slice(0, 8)}…`;
   return (
     <div className="card p-5">
       <div className="flex items-center gap-2 mb-3">
@@ -634,12 +634,12 @@ function LedgerRow({ event }: { event: AuditEvent }) {
   const labels: Record<string, { sk: string; color: string; op: string }> = {
     AUCTION_CREATED: { sk: "META", color: "text-cyan", op: "PutItem · status=OPEN" },
     BID_COMMITTED: {
-      sk: `BID#${String(event.detail.seq).padStart(3, "0")}`,
+      sk: `ACTION#${String(event.detail.seq).padStart(3, "0")}`,
       color: "text-ink",
       op: "PutItem · IF status=OPEN",
     },
     BID_REVEALED: {
-      sk: `BID#${String(event.detail.seq).padStart(3, "0")}`,
+      sk: `ACTION#${String(event.detail.seq).padStart(3, "0")}`,
       color: "text-muted",
       op: "UpdateItem · SET revealed=true",
     },

@@ -189,7 +189,7 @@ export class MemoryStore implements LedgerStore {
     // Consistent snapshot → root covers exactly the bids present now.
     const commits = state.bids.map((b) => b.commit);
     const sealedAt = this.clock();
-    const witnessKey = `auctions/${auctionId}/seal.json`;
+    const witnessKey = `sessions/${auctionId}/seal.json`;
     const statement: SealStatement = {
       auctionId,
       merkleRoot: merkleRoot(commits),
@@ -268,7 +268,7 @@ export class MemoryStore implements LedgerStore {
 
   attemptWitnessOverwrite(auctionId: string): Promise<never> {
     const state = this.require(auctionId);
-    const key = state.close?.witnessKey ?? `auctions/${auctionId}/seal.json`;
+    const key = state.close?.witnessKey ?? `sessions/${auctionId}/seal.json`;
     // Always rejects — the WORM witness refuses any mutation.
     return this.worm.overwrite(key, { merkleRoot: "forged-by-operator" });
   }

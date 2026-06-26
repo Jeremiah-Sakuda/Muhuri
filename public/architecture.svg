@@ -15,13 +15,13 @@
 
   <rect width="980" height="740" fill="#090d13"/>
   <text x="40" y="44" fill="#eef3f9" font-size="22" font-weight="700">Muhuri</text>
-  <text x="132" y="44" fill="#93a3b8" font-size="13">tamper-evident notary for sealed-bid auctions · non-repudiable ordering &amp; tamper-evidence in time</text>
+  <text x="132" y="44" fill="#93a3b8" font-size="13">tamper-evident provenance for autonomous AI agents · non-repudiable ordering &amp; tamper-evidence in time</text>
   <text x="40" y="64" fill="#e7b94e" font-size="11" class="m">🪔 seal = atomic DynamoDB TransactWriteItems · witness = S3 Object Lock (COMPLIANCE) + Ed25519 TSA · verify = offline, zero AWS creds</text>
 
   <!-- clients -->
   <rect x="90" y="92" width="800" height="56" class="box" rx="12"/>
-  <text x="110" y="118" class="t">Browser — Bidder · Organizer · Auditor</text>
-  <text x="110" y="137" class="s m">commit = SHA256(amount ‖ nonce ‖ bidderId), computed client-side — the amount is hidden until reveal</text>
+  <text x="110" y="118" class="t">Browser — Agent · Operator · Auditor</text>
+  <text x="110" y="137" class="s m">commit = SHA256(detail ‖ nonce ‖ actionType), computed client-side — the action detail is hidden until reveal</text>
   <path class="edge" d="M490,148 L490,178"/>
 
   <!-- next.js / vercel -->
@@ -56,7 +56,7 @@
   <!-- dynamodb -->
   <rect x="462" y="492" width="456" height="74" class="box" rx="12" stroke="#e7b94e" stroke-opacity="0.45"/>
   <text x="482" y="518" class="t">Amazon DynamoDB — single table <tspan class="m" fill="#e7b94e">Muhuri</tspan></text>
-  <text x="482" y="538" class="s m">PK=AUCTION#&lt;id&gt; · SK=META | BID#&lt;seq&gt; | CLOSE</text>
+  <text x="482" y="538" class="s m">PK=SESSION#&lt;id&gt; · SK=META | ACTION#&lt;seq&gt; | CLOSE</text>
   <text x="482" y="555" class="s m">TransactWriteItems · ConditionExpression · ClientRequestToken · Streams</text>
   <path class="edge" d="M690,566 L690,592"/>
   <text x="700" y="585" class="lbl">seal anchors the root →</text>
@@ -66,7 +66,7 @@
   <text x="482" y="619" class="t" font-size="14">S3 Object Lock</text>
   <text x="482" y="638" class="s">COMPLIANCE mode — write-once</text>
   <text x="482" y="655" class="s">not even root can delete/alter</text>
-  <text x="482" y="676" class="s m" fill="#2dd4bf">auctions/&lt;id&gt;/seal.json</text>
+  <text x="482" y="676" class="s m" fill="#2dd4bf">sessions/&lt;id&gt;/seal.json</text>
 
   <rect x="696" y="594" width="222" height="92" class="box" rx="12" stroke="#2dd4bf" stroke-opacity="0.5"/>
   <text x="716" y="619" class="t" font-size="14">Timestamp authority</text>
@@ -84,6 +84,6 @@
 
   <path class="edge" d="M462,640 C430,640 420,620 402,616"/>
   <text x="250" y="540" class="lbl">witnessed root</text>
-  <text x="250" y="554" class="lbl">+ revealed bids</text>
+  <text x="250" y="554" class="lbl">+ revealed actions</text>
   <path class="edge" d="M250,560 L250,575 L398,602" stroke-dasharray="3 3"/>
 </svg>

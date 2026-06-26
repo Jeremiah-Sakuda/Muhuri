@@ -2,9 +2,9 @@
  * Real DynamoDB-backed LedgerStore — the protagonist of the system.
  *
  * Single-table design (one table, three item types under one partition key):
- *   META   AUCTION#<id> / META                  status, chainHead, count, sealToken
- *   BID    AUCTION#<id> / BID#<seq:012d>#<bidId> commit, chainHeadAfter, …
- *   CLOSE  AUCTION#<id> / CLOSE                  merkleRoot, witness — sealed only
+ *   META    SESSION#<id> / META                       status, chainHead, count, sealToken
+ *   ACTION  SESSION#<id> / ACTION#<seq:012d>#<aid>     commit, chainHeadAfter, …
+ *   CLOSE   SESSION#<id> / CLOSE                       merkleRoot, witness — sealed only
  *
  * The seal is a genuine atomic two-item TransactWriteItems:
  *   1. Update META: SET status = CLOSED   IF status = OPEN AND count = :n
@@ -55,11 +55,11 @@ import { S3ObjectLockWorm } from "./witness/S3ObjectLockWorm";
 const DEFAULT_RETENTION_DAYS = 3650;
 const MAX_ATTEMPTS = 8;
 
-const pk = (auctionId: string) => `AUCTION#${auctionId}`;
+const pk = (auctionId: string) => `SESSION#${auctionId}`;
 const SK_META = "META";
 const SK_CLOSE = "CLOSE";
 const skBid = (seq: number, bidId: string) =>
-  `BID#${String(seq).padStart(12, "0")}#${bidId}`;
+  `ACTION#${String(seq).padStart(12, "0")}#${bidId}`;
 
 function isTransactionCanceled(err: unknown): boolean {
   return err instanceof Error && err.name === "TransactionCanceledException";
@@ -141,7 +141,7 @@ export class DynamoStore implements LedgerStore {
         new QueryCommand({
           TableName: this.table,
           KeyConditionExpression: "PK = :pk AND begins_with(SK, :bid)",
-          ExpressionAttributeValues: { ":pk": pk(auctionId), ":bid": "BID#" },
+          ExpressionAttributeValues: { ":pk": pk(auctionId), ":bid": "ACTION#" },
           ExclusiveStartKey,
         }),
       );
@@ -267,7 +267,7 @@ export class DynamoStore implements LedgerStore {
       const bids = await this.listBids(auctionId);
       const commits = bids.map((b) => b.commit);
       const sealedAt = this.clock();
-      const witnessKey = `auctions/${auctionId}/seal.json`;
+      const witnessKey = `sessions/${auctionId}/seal.json`;
       const statement: SealStatement = {
         auctionId,
         merkleRoot: merkleRoot(commits),
@@ -391,7 +391,7 @@ export class DynamoStore implements LedgerStore {
 
   async attemptWitnessOverwrite(auctionId: string): Promise<never> {
     const close = await this.getClose(auctionId);
-    const key = close?.witnessKey ?? `auctions/${auctionId}/seal.json`;
+    const key = close?.witnessKey ?? `sessions/${auctionId}/seal.json`;
     return this.worm.overwrite(key, { merkleRoot: "forged-by-operator" });
   }
 

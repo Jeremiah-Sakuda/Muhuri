@@ -6,9 +6,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Muhuri — tamper-evident notary for sealed-bid auctions",
+  title: "Muhuri — tamper-evident provenance for autonomous AI agents",
   description:
-    "Prove a set of bids happened in a specific order, before a deadline — verifiable by anyone, without trusting the operator.",
+    "Prove the exact ordered sequence of actions an autonomous AI agent took — externally witnessed, verifiable offline by anyone, without trusting the operator.",
 };
 
 export default function RootLayout({
