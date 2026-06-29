@@ -82,6 +82,13 @@ One `LedgerStore` interface, two implementations selected by `MUHURI_BACKEND`:
 
 The **same application code** runs on both. The verifier is backend-agnostic.
 
+The DynamoStore's real seal path — its `TransactWriteItems`, `ConditionExpression`s, count guard and
+retry loop — runs in **default CI** (`npm test`) against an in-process DynamoDB double that genuinely
+enforces conditional-write and all-or-nothing transaction semantics (concurrent appends serialize to
+contiguous sequence numbers; concurrent seals → exactly one wins). The *same* invariant suite re-points
+at real DynamoDB (or DynamoDB Local) with `MUHURI_TEST_DYNAMO=1` — so the marquee transaction is tested,
+not asserted.
+
 ## Quickstart
 
 ```bash
@@ -119,7 +126,8 @@ Muhuri runs on the `memory` backend with zero setup. To run on real AWS:
    (`.env.local`) and in your Vercel project. See [`.env.example`](.env.example).
 3. **Deploy** to Vercel. Serverless functions are pinned to `iad1` (us-east-1) via
    [`vercel.json`](vercel.json) to keep `TransactWriteItems` local to the table.
-4. **Verify parity** against the real table — the same invariant suite that runs against memory:
+4. **Verify parity** against the real table — the same invariant suite that already runs in CI against
+   the in-process double, now re-pointed at genuine AWS:
    ```bash
    MUHURI_TEST_DYNAMO=1 MUHURI_TABLE=Muhuri AWS_REGION=us-east-1 npm test -- parity
    ```
